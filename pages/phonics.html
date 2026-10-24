@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Phonics Book</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header class="hero">
+    <div class="brand">🔤 Phonics Book</div>
+    <p>Sound • Letter • Word</p>
+  </header>
+  <nav id="nav"></nav>
+  <main class="page"><div id="list" class="grid"></div></main>
+  <footer>© Alpha 25 Learning Lab</footer>
+  <script src="../app.js?v=2"></script>
+  <script>
+    loadJson('/phonics').then((lessons) => {
+      const box = document.getElementById('list');
+      if (!lessons.length) {
+        box.innerHTML = emptyMessage('No phonics cards yet.');
+        return;
+      }
+      box.innerHTML = lessons.map((lesson) => `
+        <div class="card">
+          <h2>${esc(lesson.day_label)}</h2>
+          <div style="font-size:55px;font-weight:800">${esc(lesson.letter)}</div>
+          <h3>${esc(lesson.word)}</h3>
+          ${audioBlock(lesson.audio_url)}
+          ${speakButton(`${lesson.letter || ''}. ${lesson.word || ''}`, 'en-IN', '🔊 Hear')}
+        </div>
+      `).join('');
+    }).catch(() => {
+      document.getElementById('list').innerHTML = emptyMessage('Could not load phonics. Check that the API is running.');
+    });
+  </script>
+</body>
+</html>

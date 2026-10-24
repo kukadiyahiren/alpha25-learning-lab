@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="gu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>GK - Alpha 25</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header class="hero">
+    <div class="brand">🌍 General Knowledge</div>
+    <p>Objective questions</p>
+  </header>
+  <nav id="nav"></nav>
+  <main class="page"><div id="gk" class="grid"></div></main>
+  <footer>© Alpha 25 Learning Lab</footer>
+  <script src="../app.js?v=2"></script>
+  <script>
+    loadJson('/gk').then((groups) => {
+      const box = document.getElementById('gk');
+      if (!groups.length) {
+        box.innerHTML = emptyMessage('હજુ કોઈ GK પ્રશ્ન ઉમેર્યો નથી.');
+        return;
+      }
+      box.innerHTML = groups.map((group) => `
+        <div class="card">
+          <h2>${esc(group.category)}</h2>
+          ${group.questions.map((question, index) => `
+            <div class="question">
+              <b>Q${index + 1}. ${esc(question.question)}</b><br>
+              <button class="btn" onclick="showAnswer('g${question.id}')">જવાબ</button>
+              <div id="g${question.id}" class="answer">${esc(question.answer)}</div>
+            </div>
+          `).join('')}
+        </div>
+      `).join('');
+    }).catch(() => {
+      document.getElementById('gk').innerHTML = emptyMessage('Content લોડ થયું નથી. Laravel API ચાલુ છે તે ચકાસો.');
+    });
+  </script>
+</body>
+</html>

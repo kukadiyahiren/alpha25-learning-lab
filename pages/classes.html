@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="gu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Class Learning - Alpha 25</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header class="hero">
+    <div class="brand">📚 Class Learning</div>
+    <p>ધોરણ પસંદ કરો → વિષય પસંદ કરો → Chapter + Questions</p>
+  </header>
+  <nav id="nav"></nav>
+  <main class="page">
+    <div class="selects">
+      <select id="grade" aria-label="ધોરણ"></select>
+      <select id="subject" aria-label="વિષય"></select>
+    </div>
+    <div id="content"></div>
+  </main>
+  <footer>© Alpha 25 Learning Lab</footer>
+  <script src="../app.js?v=2"></script>
+  <script>
+    const gradeSelect = document.getElementById('grade');
+    const subjectSelect = document.getElementById('subject');
+    const content = document.getElementById('content');
+    const group = new URLSearchParams(location.search).get('group');
+    let tree = [];
+
+    function questionHtml(question, index) {
+      const id = 'q' + question.id;
+      if (question.type === 'match') {
+        const pairs = Array.isArray(question.options) ? question.options : [];
+        return `<div class="question"><h3>${index + 1}. જોડકાં જોડો</h3><p>${esc(question.prompt)}</p><div class="match">${pairs.map((pair) => `<div>${esc(pair.left)}</div><div>${esc(pair.right)}</div>`).join('')}</div></div>`;
+      }
+      if (question.type === 'mcq') {
+        const options = Array.isArray(question.options) ? question.options : [];
+        return `<div class="question"><h3>${index + 1}. MCQ</h3><p>${esc(question.prompt)}</p>${options.map((option) => `<label class="option"><input type="radio" name="m${question.id}" onclick="showAnswer('${id}')"> ${esc(option)}</label>`).join('')}<div id="${id}" class="answer">સાચો જવાબ: ${esc(question.answer)}</div></div>`;
+      }
+      const titles = { fill_blank: 'ખાલી જગ્યા પૂરો', one_line: 'એક વાક્યમાં જવાબ', short: 'ટૂંકમાં જવાબ', true_false: 'ખરા-ખોટાં' };
+      return `<div class="question"><h3>${index + 1}. ${titles[question.type] || 'પ્રશ્ન'}</h3><p>${esc(question.prompt)}</p><button class="btn" onclick="showAnswer('${id}')">જવાબ જુઓ</button><div id="${id}" class="answer">${esc(question.answer)}</div></div>`;
+    }
+
+    function render() {
+      const grade = tree.find((item) => String(item.id) === gradeSelect.value);
+      const subject = grade?.subjects?.find((item) => String(item.id) === subjectSelect.value);
+      if (!subject) {
+        content.innerHTML = emptyMessage('આ ધોરણ માટે હજુ વિષય ઉમેર્યો નથી.');
+        return;
+      }
+      const chapters = subject.chapters || [];
+      if (!chapters.length) {
+        content.innerHTML = emptyMessage('આ વિષયમાં હજુ પાઠ ઉમેર્યો નથી.');
+        return;
+      }
+      content.innerHTML = chapters.map((chapter) => `
+        <div class="chapter">
+          <h2>📖 ધોરણ ${esc(grade.name)} – ${esc(subject.name)} – ${esc(chapter.title)}</h2>
+          <p>${esc(chapter.body)}</p>
+          ${speakButton(chapter.body || chapter.title, 'gu-IN', '🔊 સાંભળો')}
+        </div>
+        ${(chapter.questions || []).map(questionHtml).join('')}
+      `).join('');
+    }
+
+    function fillSubjects() {
+      const grade = tree.find((item) => String(item.id) === gradeSelect.value);
+      subjectSelect.innerHTML = (grade?.subjects || []).map((item) => `<option value="${item.id}">${esc(item.name)}</option>`).join('');
+      render();
+    }
+
+    loadJson('/classes').then((data) => {
+      tree = (data || []).filter((item) => !group || item.group === group);
+      if (!tree.length) {
+        content.innerHTML = emptyMessage('હજુ કોઈ ધોરણ ઉમેર્યો નથી. Admin panel માંથી ઉમેરો.');
+        return;
+      }
+      gradeSelect.innerHTML = tree.map((item) => `<option value="${item.id}">ધોરણ ${esc(item.name)}</option>`).join('');
+      fillSubjects();
+    }).catch(() => {
+      content.innerHTML = emptyMessage('Content લોડ થયું નથી. Laravel API ચાલુ છે તે ચકાસો.');
+    });
+
+    gradeSelect.addEventListener('change', fillSubjects);
+    subjectSelect.addEventListener('change', render);
+  </script>
+</body>
+</html>

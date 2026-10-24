@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="gu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Worksheets - Alpha 25</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header class="hero">
+    <div class="brand">📝 Worksheets</div>
+    <p>ધોરણ પ્રમાણે Online Practice</p>
+  </header>
+  <nav id="nav"></nav>
+  <main class="page"><div id="list" class="grid"></div></main>
+  <footer>© Alpha 25 Learning Lab</footer>
+  <script src="../app.js?v=2"></script>
+  <script>
+    function groupFor(grade) {
+      const number = Number(grade);
+      if (!number) return '';
+      if (number <= 2) return '1-2';
+      if (number <= 5) return '3-5';
+      return '6-8';
+    }
+
+    loadJson('/worksheets').then((rows) => {
+      const box = document.getElementById('list');
+      if (!rows.length) {
+        box.innerHTML = emptyMessage('હજુ કોઈ worksheet ઉમેરી નથી.');
+        return;
+      }
+      box.innerHTML = rows.map((row) => {
+        const group = groupFor(row.grade);
+        return `<div class="card">
+          <h2>ધોરણ ${esc(row.grade)}</h2>
+          <h3>${esc(row.title)}</h3>
+          <p>${esc(row.description)}</p>
+          ${row.file_url ? `<a class="btn" href="${esc(row.file_url)}" target="_blank" rel="noopener">Download</a>` : ''}
+          ${group ? `<a class="btn" href="classes.html?group=${group}">Practice</a>` : ''}
+        </div>`;
+      }).join('');
+    }).catch(() => {
+      document.getElementById('list').innerHTML = emptyMessage('Content લોડ થયું નથી. Laravel API ચાલુ છે તે ચકાસો.');
+    });
+  </script>
+</body>
+</html>

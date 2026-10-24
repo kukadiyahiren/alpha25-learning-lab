@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="gu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Audio Stories</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header class="hero">
+    <div class="brand">🎧 Audio Stories</div>
+    <p>Gujarati • Hindi • English</p>
+  </header>
+  <nav id="nav"></nav>
+  <main class="page"><div id="stories" class="grid"></div></main>
+  <footer>© Alpha 25 Learning Lab</footer>
+  <script src="../app.js?v=2"></script>
+  <script>
+    const langCode = { English: 'en-IN', Hindi: 'hi-IN', Gujarati: 'gu-IN' };
+    loadJson('/audio').then((stories) => {
+      const box = document.getElementById('stories');
+      if (!stories.length) {
+        box.innerHTML = emptyMessage('હજુ કોઈ audio story ઉમેરી નથી.');
+        return;
+      }
+      box.innerHTML = stories.map((story) => `
+        <div class="card">
+          <h2>${esc(story.title)}</h2>
+          <p><b>${esc(story.language)}</b></p>
+          <p>${esc(story.body)}</p>
+          ${audioBlock(story.audio_url)}
+          ${speakButton(story.body || story.title, langCode[story.language] || 'gu-IN', '🔊 Read aloud')}
+        </div>
+      `).join('');
+    }).catch(() => {
+      document.getElementById('stories').innerHTML = emptyMessage('Content લોડ થયું નથી. Laravel API ચાલુ છે તે ચકાસો.');
+    });
+  </script>
+</body>
+</html>

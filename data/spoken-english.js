@@ -1,0 +1,1 @@
+const spokenEnglish=[['Day 1','Greetings','Good morning. How are you? I am fine, thank you.'],['Day 2','Introduction','My name is Rajnish. I am happy to meet you.'],['Day 3','Classroom','Please open your book. Listen carefully. Repeat after me.']];

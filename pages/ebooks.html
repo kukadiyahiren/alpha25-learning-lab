@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="gu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>eBooks</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header class="hero">
+    <div class="brand">📚 eBooks</div>
+    <p>Digital book library</p>
+  </header>
+  <nav id="nav"></nav>
+  <main class="page"><div id="books" class="grid"></div></main>
+  <footer>© Alpha 25 Learning Lab</footer>
+  <script src="../app.js?v=2"></script>
+  <script>
+    loadJson('/ebooks').then((books) => {
+      const box = document.getElementById('books');
+      if (!books.length) {
+        box.innerHTML = emptyMessage('હજુ કોઈ eBook ઉમેર્યું નથી.');
+        return;
+      }
+      box.innerHTML = books.map((book) => `
+        <div class="card">
+          ${book.cover_url ? `<img class="cover" src="${esc(book.cover_url)}" alt="">` : ''}
+          <h2>${esc(book.title)}</h2>
+          <p>${esc(book.description)}</p>
+          ${book.file_url ? `<a class="btn" href="${esc(book.file_url)}" target="_blank" rel="noopener">Open / Download</a>` : ''}
+        </div>
+      `).join('');
+    }).catch(() => {
+      document.getElementById('books').innerHTML = emptyMessage('Content લોડ થયું નથી. Laravel API ચાલુ છે તે ચકાસો.');
+    });
+  </script>
+</body>
+</html>
