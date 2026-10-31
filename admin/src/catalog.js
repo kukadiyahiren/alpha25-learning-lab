@@ -18,7 +18,7 @@ export const RESOURCES = {
   },
   ebooks: {
     title: 'eBooks',
-    hint: 'Add a title and upload a PDF (up to 50 MB). Cover image is optional. After save, students can read it in the book viewer.',
+    hint: 'Add a title and upload a PDF (up to 50 MB). Large PDFs upload in small pieces automatically. Cover image is optional.',
     fields: [
       { name: 'title', label: 'Title', required: true },
       { name: 'description', label: 'Description', type: 'textarea' },

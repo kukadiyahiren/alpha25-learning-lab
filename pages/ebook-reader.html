@@ -6,7 +6,7 @@
   <title>eBook Reader</title>
   <link rel="icon" href="../favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="../favicon.svg">
-  <link rel="stylesheet" href="../style.css?v=15">
+  <link rel="stylesheet" href="../style.css?v=16">
 </head>
 <body class="ebook-reader-page">
   <nav id="nav"></nav>
@@ -60,7 +60,7 @@
   </main>
 
   <footer>© Alpha 25 Learning Lab</footer>
-  <script src="../app.js?v=15"></script>
+  <script src="../app.js?v=16"></script>
   <script>
     (function () {
       const params = new URLSearchParams(location.search);
@@ -86,7 +86,7 @@
       let scale = 1.15;
       let rendering = false;
 
-      function pdfFileUrl(id) {
+      function pdfProxyUrl(id) {
         return `${API_ORIGIN}/api/ebooks/${id}/file`;
       }
 
@@ -99,6 +99,34 @@
           script.onerror = () => reject(new Error('PDF engine failed to load'));
           document.head.appendChild(script);
         });
+      }
+
+      async function loadBook(id) {
+        try {
+          return await loadJson(`/ebooks/${id}`, { silent: true });
+        } catch {
+          // Older API deploys may not have /ebooks/{id}; fall back to list.
+          const books = await loadJson('/ebooks', { silent: true });
+          const book = (books || []).find((item) => String(item.id) === String(id));
+          if (!book) throw new Error('Book not found');
+          return book;
+        }
+      }
+
+      async function resolvePdfSource(book) {
+        const proxy = pdfProxyUrl(book.id);
+        try {
+          const probe = await fetch(proxy, { method: 'GET', headers: { Accept: 'application/pdf' } });
+          if (probe.ok) {
+            const buffer = await probe.arrayBuffer();
+            return { data: buffer };
+          }
+        } catch (error) {
+          console.warn('PDF proxy unavailable, trying direct file URL', error);
+        }
+        if (!book.file_url) throw new Error('No PDF uploaded for this book');
+        // Direct storage URL (may fail CORS on some hosts)
+        return { url: book.file_url };
       }
 
       function setModeButtons() {
@@ -206,7 +234,7 @@
         showKidsLoader('Opening eBook…');
         try {
           await loadPdfJs();
-          const book = await loadJson(`/ebooks/${bookId}`, { silent: true });
+          const book = await loadBook(bookId);
           titleEl.textContent = book.title || 'eBook';
           metaEl.textContent = book.description || 'Read page by page • Listen aloud';
           document.title = `${book.title || 'eBook'} · Alpha 25`;
@@ -214,18 +242,23 @@
           if (book.file_url) {
             downloadBtn.hidden = false;
             downloadBtn.href = book.file_url;
+          } else {
+            throw new Error('No PDF uploaded for this book');
           }
 
           pdfjsLib.GlobalWorkerOptions.workerSrc =
             'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-          pdfDoc = await pdfjsLib.getDocument({ url: pdfFileUrl(bookId) }).promise;
+          const source = await resolvePdfSource(book);
+          pdfDoc = await pdfjsLib.getDocument(source).promise;
           page = Math.min(Math.max(1, startPage), pdfDoc.numPages);
           await render();
           if (wantListen) listenCurrent();
         } catch (error) {
           titleEl.textContent = 'Could not open book';
-          metaEl.textContent = 'Check that a PDF is uploaded for this eBook, then try again.';
+          metaEl.textContent = error?.message === 'No PDF uploaded for this book'
+            ? 'This eBook has no PDF yet. Upload a PDF from Admin → eBooks.'
+            : 'Could not load the PDF. If Download works but Read fails, redeploy the API (book file route), then retry.';
           console.error(error);
         } finally {
           hideKidsLoader(true);

@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\PublicContentController;
 use App\Http\Controllers\Api\QuestionController;
 use App\Http\Controllers\Api\StatsController;
 use App\Http\Controllers\Api\SubjectController;
+use App\Http\Controllers\Api\UploadChunkController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
@@ -39,6 +40,18 @@ Route::middleware('auth:sanctum')->group(function () {
         ->whereIn('resource', ['audio', 'worksheets', 'gk', 'spoken-english', 'phonics']);
     Route::post('/admin/{resource}/import', [CatalogBulkImportController::class, 'import'])
         ->whereIn('resource', ['audio', 'worksheets', 'gk', 'spoken-english', 'phonics']);
+
+    Route::get('/admin/upload-limits', function () {
+        return [
+            'upload_max_filesize' => ini_get('upload_max_filesize'),
+            'post_max_size' => ini_get('post_max_size'),
+            'chunk_upload' => true,
+            'recommended_chunk_kb' => 2048,
+        ];
+    });
+
+    Route::post('/admin/{resource}/upload-chunk', [UploadChunkController::class, 'store'])
+        ->whereIn('resource', ['audio', 'ebooks', 'worksheets', 'spoken-english', 'phonics']);
 
     Route::get('/admin/{resource}', [CatalogController::class, 'index']);
     Route::post('/admin/{resource}', [CatalogController::class, 'store']);

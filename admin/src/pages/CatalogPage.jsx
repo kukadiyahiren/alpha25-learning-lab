@@ -104,6 +104,26 @@ export default function CatalogPage({ resource }) {
     setForm({ ...form, answer: value.trim() });
   }
 
+  async function uploadFileInChunks(file, onProgress) {
+    const chunkSize = 2 * 1024 * 1024; // 2MB — stays under Render's current 8MB PHP limit
+    const total = Math.max(1, Math.ceil(file.size / chunkSize));
+    const uploadId = (crypto.randomUUID && crypto.randomUUID()) || `up_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+
+    for (let index = 0; index < total; index += 1) {
+      const blob = file.slice(index * chunkSize, (index + 1) * chunkSize);
+      const chunkData = new FormData();
+      chunkData.append('upload_id', uploadId);
+      chunkData.append('chunk_index', String(index));
+      chunkData.append('chunk_total', String(total));
+      chunkData.append('filename', file.name);
+      chunkData.append('chunk', blob, `${file.name}.part${index}`);
+      await api(`/admin/${resource}/upload-chunk`, { method: 'POST', formData: chunkData });
+      if (onProgress) onProgress(index + 1, total);
+    }
+
+    return { uploadId, total, filename: file.name };
+  }
+
   async function save(event) {
     event.preventDefault();
     setBusy(true);
@@ -128,10 +148,26 @@ export default function CatalogPage({ resource }) {
       }
 
       const data = new FormData();
-      config.fields.forEach((field) => {
+      const directLimit = 2.5 * 1024 * 1024;
+
+      for (const field of config.fields) {
         if (field.type === 'file') {
-          if (files[field.name]) data.append(field.name, files[field.name]);
-          return;
+          const chosen = files[field.name];
+          if (!chosen) continue;
+
+          // Large files: upload in small chunks so PHP 8MB limit cannot block eBooks.
+          if (chosen.size > directLimit) {
+            setMessage(`Uploading ${field.label}: 0%…`);
+            const uploaded = await uploadFileInChunks(chosen, (done, total) => {
+              setMessage(`Uploading ${field.label}: ${Math.round((done / total) * 100)}%…`);
+            });
+            data.append(`${field.name}_upload_id`, uploaded.uploadId);
+            data.append(`${field.name}_chunk_total`, String(uploaded.total));
+            data.append(`${field.name}_filename`, uploaded.filename);
+          } else {
+            data.append(field.name, chosen);
+          }
+          continue;
         }
         if (field.type === 'options') {
           const options = (Array.isArray(form[field.name]) ? form[field.name] : [])
@@ -139,11 +175,13 @@ export default function CatalogPage({ resource }) {
             .filter(Boolean);
           data.append('options_present', '1');
           options.forEach((option, index) => data.append(`options[${index}]`, option));
-          return;
+          continue;
         }
-        if (field.type === 'number' && form[field.name] === '') return;
+        if (field.type === 'number' && form[field.name] === '') continue;
         data.append(field.name, form[field.name] ?? '');
-      });
+      }
+
+      setMessage(editing ? 'Saving…' : 'Saving book…');
       if (editing) await api(`/admin/${resource}/${editing}`, { method: 'POST', formData: data });
       else await api(`/admin/${resource}`, { method: 'POST', formData: data });
       setMessage(editing ? 'Updated.' : 'Added.');
@@ -152,6 +190,7 @@ export default function CatalogPage({ resource }) {
     } catch (err) {
       const messages = Object.values(err.errors || {}).flat().filter(Boolean);
       setError(messages.join(' ') || err.message || 'Could not save. Try a smaller PDF.');
+      setMessage('');
     } finally {
       setBusy(false);
     }

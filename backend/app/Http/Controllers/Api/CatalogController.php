@@ -75,6 +75,30 @@ class CatalogController extends Controller
         }
 
         foreach ($config['files'] as $input => $meta) {
+            $uploadIdKey = $input.'_upload_id';
+            $uploadTotalKey = $input.'_chunk_total';
+            $uploadNameKey = $input.'_filename';
+
+            if ($request->filled($uploadIdKey)) {
+                $request->validate([
+                    $uploadIdKey => ['required', 'string', 'max:80'],
+                    $uploadTotalKey => ['required', 'integer', 'min:1', 'max:500'],
+                    $uploadNameKey => ['required', 'string', 'max:255'],
+                ]);
+
+                if ($existing) {
+                    Media::delete($existing->{$meta['column']});
+                }
+
+                $payload[$meta['column']] = Media::assembleChunks(
+                    (string) $request->input($uploadIdKey),
+                    (int) $request->input($uploadTotalKey),
+                    $meta['folder'],
+                    (string) $request->input($uploadNameKey),
+                );
+                continue;
+            }
+
             if ($request->hasFile($input)) {
                 if ($existing) {
                     Media::delete($existing->{$meta['column']});
