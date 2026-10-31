@@ -3,19 +3,39 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>GK - Alpha 25</title>
-  <link rel="stylesheet" href="../style.css">
+  <title>GK - Alpha 25</title><link rel="icon" href="../favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="../favicon.svg">
+  <link rel="stylesheet" href="../style.css?v=10">
 </head>
 <body>
   <header class="hero">
     <div class="brand">🌍 General Knowledge</div>
-    <p>Objective questions</p>
+    <p>Objective questions — pick the right answer</p>
   </header>
   <nav id="nav"></nav>
   <main class="page"><div id="gk" class="grid"></div></main>
   <footer>© Alpha 25 Learning Lab</footer>
-  <script src="../app.js?v=2"></script>
+  <script src="../app.js?v=10"></script>
   <script>
+    function checkGk(button, answer) {
+      const wrap = button.closest('.gk-options');
+      if (!wrap || wrap.dataset.locked === '1') return;
+      wrap.dataset.locked = '1';
+      const chosen = button.dataset.value;
+      const correct = String(answer || '').trim();
+      wrap.querySelectorAll('.gk-option').forEach((btn) => {
+        const value = btn.dataset.value;
+        btn.disabled = true;
+        if (value === correct) btn.classList.add('is-correct');
+        if (btn === button && value !== correct) btn.classList.add('is-wrong');
+      });
+      const feedback = wrap.parentElement.querySelector('.gk-feedback');
+      if (feedback) {
+        feedback.hidden = false;
+        feedback.textContent = chosen === correct ? 'સાચો જવાબ! 🎉' : `ખોટું — સાચો જવાબ: ${correct}`;
+        feedback.className = `gk-feedback ${chosen === correct ? 'ok' : 'bad'}`;
+      }
+    }
+
     loadJson('/gk').then((groups) => {
       const box = document.getElementById('gk');
       if (!groups.length) {
@@ -25,13 +45,30 @@
       box.innerHTML = groups.map((group) => `
         <div class="card">
           <h2>${esc(group.category)}</h2>
-          ${group.questions.map((question, index) => `
-            <div class="question">
-              <b>Q${index + 1}. ${esc(question.question)}</b><br>
-              <button class="btn" onclick="showAnswer('g${question.id}')">જવાબ</button>
-              <div id="g${question.id}" class="answer">${esc(question.answer)}</div>
-            </div>
-          `).join('')}
+          ${group.questions.map((question, index) => {
+            const options = Array.isArray(question.options) ? question.options.filter(Boolean) : [];
+            const choices = options.length >= 2
+              ? `<div class="gk-options">${options.map((option, optIndex) => `
+                  <button
+                    type="button"
+                    class="gk-option"
+                    data-value="${esc(option)}"
+                    onclick='checkGk(this, ${JSON.stringify(String(question.answer || ''))})'
+                  >
+                    <span class="gk-letter">${String.fromCharCode(65 + optIndex)}</span>
+                    <span>${esc(option)}</span>
+                  </button>
+                `).join('')}</div>
+                <div class="gk-feedback" hidden></div>`
+              : `<button class="btn" onclick="showAnswer('g${question.id}')">જવાબ</button>
+                 <div id="g${question.id}" class="answer">${esc(question.answer)}</div>`;
+            return `
+              <div class="question">
+                <b>Q${index + 1}. ${esc(question.question)}</b>
+                ${choices}
+              </div>
+            `;
+          }).join('')}
         </div>
       `).join('');
     }).catch(() => {

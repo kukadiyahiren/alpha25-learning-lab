@@ -2,7 +2,18 @@ import { useEffect, useMemo, useState } from 'react';
 import { api, downloadFile } from '../api';
 import { RESOURCES } from '../catalog';
 
-const emptyFrom = (fields) => Object.fromEntries(fields.map((field) => [field.name, '']));
+const emptyOptions = () => ['', '', '', ''];
+
+const emptyFrom = (fields) => Object.fromEntries(fields.map((field) => [
+  field.name,
+  field.type === 'options' ? emptyOptions() : '',
+]));
+
+function optionsFromRow(value) {
+  const list = Array.isArray(value) ? value.map((item) => String(item ?? '')) : [];
+  while (list.length < 4) list.push('');
+  return list;
+}
 
 export default function CatalogPage({ resource }) {
   const config = RESOURCES[resource];
@@ -45,7 +56,12 @@ export default function CatalogPage({ resource }) {
   function edit(row) {
     const next = emptyFrom(config.fields);
     config.fields.forEach((field) => {
-      if (field.type !== 'file') next[field.name] = row[field.name] ?? '';
+      if (field.type === 'file') return;
+      if (field.type === 'options') {
+        next[field.name] = optionsFromRow(row[field.name]);
+        return;
+      }
+      next[field.name] = row[field.name] ?? '';
     });
     setForm(next);
     setFiles({});
@@ -60,6 +76,34 @@ export default function CatalogPage({ resource }) {
     setEditing(null);
   }
 
+  function updateOption(fieldName, index, value) {
+    const current = Array.isArray(form[fieldName]) ? [...form[fieldName]] : emptyOptions();
+    current[index] = value;
+    setForm({ ...form, [fieldName]: current });
+  }
+
+  function addOption(fieldName) {
+    const current = Array.isArray(form[fieldName]) ? [...form[fieldName]] : emptyOptions();
+    if (current.length >= 8) return;
+    setForm({ ...form, [fieldName]: [...current, ''] });
+  }
+
+  function removeOption(fieldName, index) {
+    const current = Array.isArray(form[fieldName]) ? [...form[fieldName]] : emptyOptions();
+    if (current.length <= 2) {
+      current[index] = '';
+      setForm({ ...form, [fieldName]: current });
+      return;
+    }
+    current.splice(index, 1);
+    setForm({ ...form, [fieldName]: current });
+  }
+
+  function useOptionAsAnswer(value) {
+    if (!value.trim()) return;
+    setForm({ ...form, answer: value.trim() });
+  }
+
   async function save(event) {
     event.preventDefault();
     setBusy(true);
@@ -70,6 +114,14 @@ export default function CatalogPage({ resource }) {
       config.fields.forEach((field) => {
         if (field.type === 'file') {
           if (files[field.name]) data.append(field.name, files[field.name]);
+          return;
+        }
+        if (field.type === 'options') {
+          const options = (Array.isArray(form[field.name]) ? form[field.name] : [])
+            .map((item) => String(item ?? '').trim())
+            .filter(Boolean);
+          data.append('options_present', '1');
+          options.forEach((option, index) => data.append(`options[${index}]`, option));
           return;
         }
         if (field.type === 'number' && form[field.name] === '') return;
@@ -184,11 +236,32 @@ export default function CatalogPage({ resource }) {
           {message && <div className="ok">{message}</div>}
           {config.fields.map((field) => (
             <div key={field.name}>
-              <label htmlFor={field.name}>{field.label}</label>
+              <label htmlFor={field.type === 'options' ? undefined : field.name}>{field.label}</label>
+              {field.hint && <p className="muted" style={{ margin: '0 0 8px' }}>{field.hint}</p>}
               {field.type === 'textarea' ? (
-                <textarea id={field.name} required={field.required} value={form[field.name]} onChange={(e) => setForm({ ...form, [field.name]: e.target.value })} />
+                <textarea id={field.name} required={field.required} placeholder={field.placeholder || ''} value={form[field.name]} onChange={(e) => setForm({ ...form, [field.name]: e.target.value })} />
               ) : field.type === 'file' ? (
                 <input id={field.name} type="file" accept={field.accept} onChange={(e) => setFiles({ ...files, [field.name]: e.target.files?.[0] })} />
+              ) : field.type === 'options' ? (
+                <div className="options-editor">
+                  {(Array.isArray(form[field.name]) ? form[field.name] : emptyOptions()).map((option, index) => (
+                    <div className="option-row" key={`${field.name}-${index}`}>
+                      <span className="option-letter">{String.fromCharCode(65 + index)}</span>
+                      <input
+                        type="text"
+                        aria-label={`Option ${String.fromCharCode(65 + index)}`}
+                        placeholder={`Option ${String.fromCharCode(65 + index)}`}
+                        value={option}
+                        onChange={(e) => updateOption(field.name, index, e.target.value)}
+                      />
+                      <button className="btn secondary small" type="button" onClick={() => useOptionAsAnswer(option)} title="Set as correct answer">Correct</button>
+                      <button className="btn danger small" type="button" onClick={() => removeOption(field.name, index)} aria-label="Remove option">×</button>
+                    </div>
+                  ))}
+                  {(Array.isArray(form[field.name]) ? form[field.name] : []).length < 8 && (
+                    <button className="btn secondary small" type="button" onClick={() => addOption(field.name)}>+ Add option</button>
+                  )}
+                </div>
               ) : (
                 <input id={field.name} type={field.type === 'number' ? 'number' : 'text'} required={field.required} placeholder={field.placeholder || ''} value={form[field.name]} onChange={(e) => setForm({ ...form, [field.name]: e.target.value })} />
               )}

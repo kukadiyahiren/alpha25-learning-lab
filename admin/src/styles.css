@@ -107,8 +107,26 @@ input:focus, textarea:focus, select:focus {
 .stat b { display: block; font-size: 1.6rem; }
 .stat span { color: var(--muted); }
 
-.layout-split { display: grid; grid-template-columns: 320px 1fr; gap: 16px; align-items: start; }
+.layout-split { display: grid; grid-template-columns: minmax(340px, 420px) 1fr; gap: 16px; align-items: start; }
 .panel { padding: 16px; }
+.options-editor { display: grid; gap: 8px; }
+.option-row {
+  display: grid;
+  grid-template-columns: 28px 1fr auto auto;
+  gap: 6px;
+  align-items: center;
+}
+.option-letter {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #e8eef5;
+  font-weight: 800;
+  font-size: 0.85rem;
+}
+.option-row input { min-height: 40px; padding: 8px 10px; }
 .table-wrap { overflow: auto; }
 table { width: 100%; border-collapse: collapse; }
 th, td { text-align: left; padding: 12px; border-bottom: 1px solid var(--line); vertical-align: top; }

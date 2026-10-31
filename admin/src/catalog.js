@@ -47,16 +47,17 @@ export const RESOURCES = {
   },
   gk: {
     title: 'GK questions',
-    hint: 'Objective questions grouped by category on the GK page.',
+    hint: 'Objective questions with multiple-choice options. Mark the correct answer in the Answer field.',
     bulk: {
-      columns: ['category', 'question', 'answer', 'sort_order'],
+      columns: ['category', 'question', 'answer', 'option_1', 'option_2', 'option_3', 'option_4', 'sort_order'],
       sample: 'gk-questions-sample.csv',
-      note: 'One question per row. Use the same category name to group questions.',
+      note: 'One question per row. Fill option_1…option_4 for multiple choice. Answer must match the correct option.',
     },
     fields: [
       { name: 'category', label: 'Category', required: true, placeholder: 'Gujarat' },
       { name: 'question', label: 'Question', type: 'textarea', required: true },
-      { name: 'answer', label: 'Answer', type: 'textarea', required: true },
+      { name: 'options', label: 'Answer options', type: 'options', hint: 'Add 2–4 choices students can pick from.' },
+      { name: 'answer', label: 'Correct answer', type: 'textarea', required: true, placeholder: 'Must match one option text' },
       { name: 'sort_order', label: 'Order', type: 'number' },
     ],
     columns: ['category', 'question', 'answer'],

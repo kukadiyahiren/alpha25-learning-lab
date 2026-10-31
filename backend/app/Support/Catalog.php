@@ -60,6 +60,8 @@ class Catalog
                     'category' => ['required', 'string', 'max:100'],
                     'question' => ['required', 'string'],
                     'answer' => ['required', 'string'],
+                    'options' => ['nullable', 'array', 'max:8'],
+                    'options.*' => ['nullable', 'string', 'max:500'],
                     'sort_order' => ['nullable', 'integer'],
                 ],
                 'files' => [],

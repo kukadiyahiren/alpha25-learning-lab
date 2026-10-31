@@ -107,11 +107,11 @@ class BulkImport
                 'sheet' => 'GK',
                 'filename' => 'gk-questions-sample',
                 'model' => GkQuestion::class,
-                'columns' => ['category', 'question', 'answer', 'sort_order'],
+                'columns' => ['category', 'question', 'answer', 'option_1', 'option_2', 'option_3', 'option_4', 'sort_order'],
                 'samples' => [
-                    ['Gujarat', 'ગુજરાતની રાજધાની કઈ છે?', 'ગાંધીનગર', 1],
-                    ['India', 'ભારતની રાજધાની કઈ છે?', 'નવી દિલ્હી', 2],
-                    ['World', 'પૃથ્વીનો ઉપગ્રહ કયો છે?', 'ચંદ્ર', 3],
+                    ['Gujarat', 'ગુજરાતની રાજધાની કઈ છે?', 'ગાંધીનગર', 'અમદાવાદ', 'ગાંધીનગર', 'સુરત', 'રાજકોટ', 1],
+                    ['India', 'ભારતની રાજધાની કઈ છે?', 'નવી દિલ્હી', 'મુંબઈ', 'નવી દિલ્હી', 'કોલકાતા', 'ચેન્નઈ', 2],
+                    ['World', 'પૃથ્વીનો ઉપગ્રહ કયો છે?', 'ચંદ્ર', 'સૂર્ય', 'મંગળ', 'ચંદ્ર', 'શુક્ર', 3],
                 ],
                 'aliases' => [
                     'cat' => 'category',
@@ -119,6 +119,11 @@ class BulkImport
                     'q' => 'question',
                     'a' => 'answer',
                     'ans' => 'answer',
+                    'option1' => 'option_1',
+                    'option2' => 'option_2',
+                    'option3' => 'option_3',
+                    'option4' => 'option_4',
+                    'options' => 'option_1',
                     'order' => 'sort_order',
                     'sort' => 'sort_order',
                 ],
@@ -127,6 +132,16 @@ class BulkImport
                     $question = trim((string) ($row['question'] ?? ''));
                     $answer = trim((string) ($row['answer'] ?? ''));
                     $sortOrder = $row['sort_order'] ?? 0;
+                    $options = collect([
+                        $row['option_1'] ?? null,
+                        $row['option_2'] ?? null,
+                        $row['option_3'] ?? null,
+                        $row['option_4'] ?? null,
+                    ])
+                        ->map(fn ($option) => trim((string) $option))
+                        ->filter(fn ($option) => $option !== '')
+                        ->values()
+                        ->all();
 
                     if ($category === '' && $question === '' && $answer === '') {
                         return ['skip' => true];
@@ -134,12 +149,16 @@ class BulkImport
                     if ($category === '' || $question === '' || $answer === '') {
                         return ['error' => "Row {$line}: category, question and answer are needed."];
                     }
+                    if ($options !== [] && count($options) < 2) {
+                        return ['error' => "Row {$line}: add at least 2 options for multiple choice."];
+                    }
 
                     return [
                         'payload' => [
                             'category' => $category,
                             'question' => $question,
                             'answer' => $answer,
+                            'options' => $options === [] ? null : $options,
                             'sort_order' => is_numeric($sortOrder) ? (int) $sortOrder : 0,
                         ],
                     ];

@@ -4,34 +4,110 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Alpha 25 Learning Lab</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="favicon.svg">
+  <link rel="stylesheet" href="style.css?v=10">
+  <link rel="stylesheet" href="home.css?v=8">
 </head>
-<body>
-  <header class="home-hero">
-    <div>
-      <div class="brand">Alpha 25 Learning Lab</div>
-      <p>Learn • Listen • Practice • Play • Create — Balvatika થી ધોરણ 8 માટેની interactive learning platform.</p>
-      <div class="cta-row">
-        <a class="btn" href="pages/classes.html">📚 Start Learning</a>
-        <a class="btn" href="pages/audio.html">🎧 Audio Stories</a>
-        <a class="btn" href="pages/games.html">🎮 Play Games</a>
+<body class="home">
+  <nav id="nav"></nav>
+
+  <header class="home-stage">
+    <div class="home-banner">
+      <div class="home-content">
+        <p class="home-kicker">Balvatika to Class 8</p>
+        <h1 class="home-brand">Alpha 25 Learning Lab</h1>
+        <p class="home-headline">શીખો. સાંભળો. રમો. બનાવો.</p>
+        <p class="home-lead">રંગીન interactive learning — classes, stories, games અને drawing એક જગ્યાએ.</p>
+        <div class="home-cta">
+          <a class="btn btn-primary" href="pages/classes.html">Start Learning</a>
+          <a class="btn btn-secondary" href="pages/audio.html">Listen to Stories</a>
+        </div>
+      </div>
+
+      <div class="home-visual" aria-hidden="true">
+        <div class="orbit orbit-a"></div>
+        <div class="orbit orbit-b"></div>
+        <div class="float-shape sun"></div>
+        <div class="float-shape star s1"></div>
+        <div class="float-shape star s2"></div>
+        <div class="float-shape star s3"></div>
+        <div class="float-shape book b1"></div>
+        <div class="float-shape book b2"></div>
+        <div class="float-shape pencil"></div>
+        <div class="badge-25">25</div>
       </div>
     </div>
   </header>
-  <nav id="nav"></nav>
-  <main class="page">
-    <div class="grid">
-      <div class="card"><h2>📚 Class Learning</h2><p>ધોરણ 1–8, વિષય અને chapter-wise practice.</p><a class="btn" href="pages/classes.html">Open</a></div>
-      <div class="card"><h2>🎧 Audio Stories</h2><p>Gujarati, Hindi અને English stories સાંભળો.</p><a class="btn" href="pages/audio.html">Open</a></div>
-      <div class="card"><h2>📝 Worksheets</h2><p>Online practice zones by grade.</p><a class="btn" href="pages/worksheets.html">Open</a></div>
-      <div class="card"><h2>🌍 General Knowledge</h2><p>Objective questions framework.</p><a class="btn" href="pages/gk.html">Open</a></div>
-      <div class="card"><h2>🗣️ Spoken English</h2><p>Day-wise speaking practice.</p><a class="btn" href="pages/spoken-english.html">Open</a></div>
-      <div class="card"><h2>🔤 Phonics</h2><p>Letter sounds અને words.</p><a class="btn" href="pages/phonics.html">Open</a></div>
-      <div class="card"><h2>🎮 Games</h2><p>Balvatika learning games.</p><a class="btn" href="pages/games.html">Open</a></div>
-      <div class="card"><h2>🎨 Drawing</h2><p>Reference જુઓ અને freehand draw કરો.</p><a class="btn" href="pages/drawing.html">Open</a></div>
+
+  <section class="poster-widgets" data-reveal>
+    <article class="home-poster poster-learn">
+      <svg class="poster-art" viewBox="0 0 420 420" aria-hidden="true">
+        <rect x="90" y="80" width="240" height="280" rx="24" fill="#fff" fill-opacity="0.85"/>
+        <path d="M120 140h180M120 180h140M120 220h160M120 260h120" stroke="#045d6e" stroke-width="14" stroke-linecap="round"/>
+        <circle cx="300" cy="300" r="54" fill="#ffb703"/>
+      </svg>
+      <div class="poster-inner">
+        <h2>Class Learning</h2>
+        <p>ધોરણ પસંદ કરો, વિષય ખોલો, અને chapter સાથે practice કરો.</p>
+        <a class="btn" href="pages/classes.html">Open Classes</a>
+      </div>
+    </article>
+
+    <article class="home-poster poster-listen">
+      <svg class="poster-art" viewBox="0 0 420 420" aria-hidden="true">
+        <circle cx="210" cy="210" r="120" fill="#fff" fill-opacity="0.18"/>
+        <circle cx="210" cy="210" r="70" fill="#fff" fill-opacity="0.28"/>
+        <path d="M160 180v70c0 28 22 45 50 45s50-17 50-45v-90" stroke="#fff" stroke-width="22" stroke-linecap="round" fill="none"/>
+        <circle cx="260" cy="150" r="28" fill="#ffb703"/>
+      </svg>
+      <div class="poster-inner">
+        <h2>Audio Stories</h2>
+        <p>Gujarati, Hindi અને English stories સાંભળો — સ્વર સાથે શીખો.</p>
+        <a class="btn" href="pages/audio.html">Play Stories</a>
+      </div>
+    </article>
+
+    <article class="home-poster poster-create">
+      <svg class="poster-art" viewBox="0 0 420 420" aria-hidden="true">
+        <rect x="80" y="90" width="260" height="220" rx="28" fill="#fff" fill-opacity="0.35"/>
+        <path d="M120 280c40-70 70-110 110-150 20 35 45 70 90 120" stroke="#2a160c" stroke-width="16" stroke-linecap="round" fill="none" opacity="0.45"/>
+        <circle cx="300" cy="130" r="34" fill="#043447" fill-opacity="0.25"/>
+      </svg>
+      <div class="poster-inner">
+        <h2>Draw &amp; Play</h2>
+        <p>રંગો, shapes અને games સાથે મનથી શીખો અને બનાવો.</p>
+        <a class="btn" href="pages/drawing.html">Open Drawing</a>
+      </div>
+    </article>
+  </section>
+
+  <section class="explore" data-reveal>
+    <h2>Explore more</h2>
+    <p>Worksheets, GK, phonics અને બીજા learning corners.</p>
+    <div class="explore-rail">
+      <a class="explore-link" style="--c1:#008f7a;--c2:#0aa38c" href="pages/worksheets.html"><strong>Worksheets</strong><span>Grade-wise practice sheets</span></a>
+      <a class="explore-link" style="--c1:#1f7aec;--c2:#38bdf8" href="pages/gk.html"><strong>General Knowledge</strong><span>Quick objective questions</span></a>
+      <a class="explore-link" style="--c1:#ff6b4a;--c2:#ff8f3d" href="pages/spoken-english.html"><strong>Spoken English</strong><span>Day-wise speaking scripts</span></a>
+      <a class="explore-link" style="--c1:#0e7490;--c2:#22d3ee" href="pages/phonics.html"><strong>Phonics</strong><span>Letters, sounds, words</span></a>
+      <a class="explore-link" style="--c1:#0f766e;--c2:#14b8a6" href="pages/games.html"><strong>Games</strong><span>Balvatika learning play</span></a>
+      <a class="explore-link" style="--c1:#2563eb;--c2:#60a5fa" href="pages/ebooks.html"><strong>eBooks</strong><span>Digital book library</span></a>
+      <a class="explore-link" style="--c1:#b45309;--c2:#f59e0b" href="pages/about.html"><strong>About</strong><span>Vision of Alpha 25</span></a>
+      <a class="explore-link" style="--c1:#043447;--c2:#0b5b73" href="pages/contact.html"><strong>Contact</strong><span>Reach the learning lab</span></a>
     </div>
-  </main>
+  </section>
+
   <footer>© Alpha 25 Learning Lab</footer>
-  <script src="app.js?v=2"></script>
+  <script src="app.js?v=10"></script>
+  <script>
+    const reveal = () => {
+      document.querySelectorAll('[data-reveal]').forEach((el) => {
+        const top = el.getBoundingClientRect().top;
+        if (top < window.innerHeight * 0.86) el.classList.add('in');
+      });
+    };
+    reveal();
+    window.addEventListener('scroll', reveal, { passive: true });
+  </script>
 </body>
 </html>

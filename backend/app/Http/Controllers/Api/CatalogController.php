@@ -65,6 +65,15 @@ class CatalogController extends Controller
         $payload = collect($validated)->except(array_keys($config['files']))->all();
         $payload['sort_order'] = $payload['sort_order'] ?? 0;
 
+        if ($request->boolean('options_present') || array_key_exists('options', $payload) || $request->has('options')) {
+            $options = collect($request->input('options', $payload['options'] ?? []))
+                ->map(fn ($option) => trim((string) $option))
+                ->filter(fn ($option) => $option !== '')
+                ->values()
+                ->all();
+            $payload['options'] = $options === [] ? null : $options;
+        }
+
         foreach ($config['files'] as $input => $meta) {
             if ($request->hasFile($input)) {
                 if ($existing) {
