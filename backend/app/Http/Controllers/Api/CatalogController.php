@@ -21,6 +21,7 @@ class CatalogController extends Controller
         $config = Catalog::get($resource);
         $validated = $request->validate($this->rules($config));
         $payload = $this->payload($request, $config, $validated);
+        $payload = $this->ensureEbookCover($resource, $payload);
 
         return $config['model']::query()->create($payload);
     }
@@ -31,6 +32,7 @@ class CatalogController extends Controller
         $model = $config['model']::query()->findOrFail($id);
         $validated = $request->validate($this->rules($config));
         $payload = $this->payload($request, $config, $validated, $model);
+        $payload = $this->ensureEbookCover($resource, $payload, $model);
         $model->update($payload);
 
         return $model->fresh();
@@ -105,6 +107,23 @@ class CatalogController extends Controller
                 }
                 $payload[$meta['column']] = Media::store($request->file($input), $meta['folder']);
             }
+        }
+
+        return $payload;
+    }
+
+    private function ensureEbookCover(string $resource, array $payload, $existing = null): array
+    {
+        if ($resource !== 'ebooks') {
+            return $payload;
+        }
+
+        $title = trim((string) ($payload['title'] ?? $existing?->title ?? 'eBook'));
+        $hasNewCover = ! empty($payload['cover_path']);
+        $hasExistingCover = $existing && ! empty($existing->cover_path);
+
+        if (! $hasNewCover && ! $hasExistingCover) {
+            $payload['cover_path'] = Media::generateEbookCover($title);
         }
 
         return $payload;

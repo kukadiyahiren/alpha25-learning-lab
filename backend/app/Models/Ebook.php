@@ -13,6 +13,12 @@ class Ebook extends Model
 
     public function getCoverUrlAttribute(): ?string
     {
+        if (! $this->cover_path) {
+            $title = trim((string) ($this->title ?: 'eBook'));
+            $path = Media::generateEbookCover($title);
+            $this->forceFill(['cover_path' => $path])->saveQuietly();
+        }
+
         return Media::url($this->cover_path);
     }
 
