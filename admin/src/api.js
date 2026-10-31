@@ -23,7 +23,15 @@ export async function api(path, { method = 'GET', body, formData } = {}) {
   }
 
   const response = await fetch(`${API_ORIGIN}/api${path}`, { method, headers, body: payload });
-  const data = response.status === 204 ? null : await response.json().catch(() => ({}));
+  const raw = response.status === 204 ? '' : await response.text();
+  let data = {};
+  if (raw) {
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      data = {};
+    }
+  }
 
   if (response.status === 401 && path !== '/login') {
     setToken(null);
@@ -32,10 +40,29 @@ export async function api(path, { method = 'GET', body, formData } = {}) {
     }
   }
 
+  const tooLarge = response.status === 413
+    || /Content-Length .* exceeds the limit/i.test(raw)
+    || /post_max_size|upload_max_filesize/i.test(raw);
+
+  if (tooLarge) {
+    const error = new Error('This PDF is too large for the server upload limit (currently needs API redeploy for 64MB). Try again after Render redeploy, or use a PDF under 8MB temporarily.');
+    error.status = 413;
+    error.errors = {};
+    throw error;
+  }
+
   if (!response.ok) {
     const error = new Error(data?.message || 'Request failed');
     error.status = response.status;
     error.errors = data?.errors || {};
+    throw error;
+  }
+
+  // PHP may return 200 with an empty body when post_max_size is exceeded
+  if (formData && !raw && response.status === 200) {
+    const error = new Error('Upload did not reach the server. The PDF is likely larger than the current server limit. Redeploy the API, then try again.');
+    error.status = 413;
+    error.errors = {};
     throw error;
   }
 

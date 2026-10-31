@@ -7,6 +7,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
+# Permanent PHP upload limits (ebook PDFs can be 20MB+)
+COPY docker/uploads.ini /usr/local/etc/php/conf.d/zz-uploads.ini
+
 WORKDIR /app
 
 COPY composer.json composer.lock ./
@@ -20,4 +23,4 @@ RUN composer dump-autoload --optimize \
 ENV PORT=10000
 EXPOSE 10000
 
-CMD ["sh", "-c", "php -d upload_max_filesize=64M -d post_max_size=72M -d max_file_uploads=20 artisan serve --host=0.0.0.0 --port=${PORT}"]
+CMD ["sh", "-c", "php artisan serve --host=0.0.0.0 --port=${PORT}"]
