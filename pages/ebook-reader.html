@@ -6,7 +6,7 @@
   <title>eBook Reader</title>
   <link rel="icon" href="../favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="../favicon.svg">
-  <link rel="stylesheet" href="../style.css?v=17">
+  <link rel="stylesheet" href="../style.css?v=18">
 </head>
 <body class="ebook-reader-page">
   <nav id="nav"></nav>
@@ -32,11 +32,8 @@
       </label>
       <button type="button" class="tool" id="nextBtn" title="Next page">Next ›</button>
       <span class="toolbar-gap"></span>
-      <button type="button" class="tool" id="mode1Btn" data-mode="1">1 page</button>
-      <button type="button" class="tool active" id="mode2Btn" data-mode="2">2 pages</button>
-      <button type="button" class="tool" id="zoomOutBtn">−</button>
-      <span id="zoomLabel" class="size-badge">100%</span>
-      <button type="button" class="tool" id="zoomInBtn">+</button>
+      <button type="button" class="tool" id="mode1Btn">1 page</button>
+      <button type="button" class="tool active" id="mode2Btn">2 pages</button>
       <span class="toolbar-gap"></span>
       <select id="listenLang" aria-label="Listen language">
         <option value="gu-IN">Gujarati</option>
@@ -47,21 +44,18 @@
       <button type="button" class="btn secondary small" id="stopListenBtn">Stop</button>
     </section>
 
-    <section class="ebook-stage" id="stage">
-      <button type="button" class="ebook-nav-hotspot left" id="hotPrev" aria-label="Previous page"></button>
-      <div class="ebook-spread" id="spread">
-        <canvas id="pageLeft" class="ebook-page"></canvas>
-        <canvas id="pageRight" class="ebook-page"></canvas>
+    <section class="ebook-stage ebook-stage-flip" id="stage">
+      <div class="ebook-book-wrap">
+        <div id="flipBook" class="ebook-flip-root"></div>
       </div>
       <iframe id="ebookEmbed" class="ebook-embed" title="PDF reader" hidden></iframe>
-      <button type="button" class="ebook-nav-hotspot right" id="hotNext" aria-label="Next page"></button>
     </section>
 
-    <p class="ebook-hint muted" id="ebookHint">Tip: use ← → keys, or click the left/right side. <b>2 pages</b> is like Archive.org reading mode.</p>
+    <p class="ebook-hint muted" id="ebookHint">Drag a page corner or tap the sides to flip — just like a real book.</p>
   </main>
 
   <footer>© Alpha 25 Learning Lab</footer>
-  <script src="../app.js?v=17"></script>
+  <script src="../app.js?v=18"></script>
   <script>
     (function () {
       const params = new URLSearchParams(location.search);
@@ -73,24 +67,21 @@
       const metaEl = document.getElementById('bookMeta');
       const pageInput = document.getElementById('pageInput');
       const pageTotal = document.getElementById('pageTotal');
-      const zoomLabel = document.getElementById('zoomLabel');
-      const leftCanvas = document.getElementById('pageLeft');
-      const rightCanvas = document.getElementById('pageRight');
-      const spread = document.getElementById('spread');
       const downloadBtn = document.getElementById('downloadBtn');
       const listenLang = document.getElementById('listenLang');
+      const embedEl = document.getElementById('ebookEmbed');
+      const hintEl = document.getElementById('ebookHint');
+      const flipRoot = document.getElementById('flipBook');
+      const mode1Btn = document.getElementById('mode1Btn');
+      const mode2Btn = document.getElementById('mode2Btn');
 
       let pdfDoc = null;
+      let pageFlip = null;
+      let pageImages = [];
       let page = startPage;
-      let mode = params.get('mode') === '1up' || window.innerWidth < 820 ? 1 : 2;
-      if (params.get('mode') === '2up') mode = 2;
-      let scale = 1.15;
-      let rendering = false;
-
-      const embedEl = document.getElementById('ebookEmbed');
-      const toolbarEl = document.getElementById('ebookToolbar');
-      const hintEl = document.getElementById('ebookHint');
-      let embedMode = false;
+      let usePortrait = params.get('mode') === '1up' || window.innerWidth < 820;
+      if (params.get('mode') === '2up') usePortrait = false;
+      let flipping = false;
 
       function candidatePdfUrls(book) {
         const urls = [];
@@ -104,15 +95,31 @@
         return urls;
       }
 
-      function loadPdfJs() {
-        if (window.pdfjsLib) return Promise.resolve();
+      function loadScript(src) {
         return new Promise((resolve, reject) => {
+          const existing = document.querySelector(`script[src="${src}"]`);
+          if (existing) {
+            resolve();
+            return;
+          }
           const script = document.createElement('script');
-          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+          script.src = src;
           script.onload = resolve;
-          script.onerror = () => reject(new Error('PDF engine failed to load'));
+          script.onerror = () => reject(new Error(`Failed to load ${src}`));
           document.head.appendChild(script);
         });
+      }
+
+      async function loadPdfJs() {
+        if (window.pdfjsLib) return;
+        await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      }
+
+      async function loadPageFlip() {
+        if (window.St && window.St.PageFlip) return;
+        await loadScript('https://cdn.jsdelivr.net/npm/page-flip@2.0.7/dist/js/page-flip.browser.js');
       }
 
       async function loadBook(id) {
@@ -145,82 +152,129 @@
         return null;
       }
 
-      function showEmbedFallback(fileUrl) {
-        embedMode = true;
-        spread.hidden = true;
-        document.getElementById('hotPrev').hidden = true;
-        document.getElementById('hotNext').hidden = true;
-        toolbarEl.querySelectorAll('.tool, .tool-label, #zoomLabel, #listenBtn, #listenLang, #stopListenBtn').forEach((el) => {
-          el.style.display = 'none';
-        });
-        embedEl.hidden = false;
-        embedEl.src = fileUrl;
-        hintEl.innerHTML = 'Simple reader mode (Download PDF works here). Full page-flip + Listen needs the API PDF proxy after redeploy.';
-      }
-
       function setModeButtons() {
-        document.getElementById('mode1Btn').classList.toggle('active', mode === 1);
-        document.getElementById('mode2Btn').classList.toggle('active', mode === 2);
-        spread.classList.toggle('is-single', mode === 1);
-        rightCanvas.hidden = mode === 1;
+        mode1Btn.classList.toggle('active', usePortrait);
+        mode2Btn.classList.toggle('active', !usePortrait);
       }
 
       function updateUrl() {
         const url = new URL(location.href);
         url.searchParams.set('id', String(bookId));
         url.searchParams.set('page', String(page));
-        url.searchParams.set('mode', mode === 2 ? '2up' : '1up');
+        url.searchParams.set('mode', usePortrait ? '1up' : '2up');
         history.replaceState({ soft: true }, '', url);
       }
 
-      async function renderPage(num, canvas) {
-        if (!pdfDoc || num < 1 || num > pdfDoc.numPages) {
-          const ctx = canvas.getContext('2d');
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          canvas.hidden = true;
-          return;
-        }
-        canvas.hidden = false;
-        const pdfPage = await pdfDoc.getPage(num);
-        const ratio = window.devicePixelRatio || 1;
-        const viewport = pdfPage.getViewport({ scale: scale * ratio });
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        canvas.style.width = `${viewport.width / ratio}px`;
-        canvas.style.height = `${viewport.height / ratio}px`;
-        await pdfPage.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+      function syncPageUi(index) {
+        page = index + 1;
+        pageInput.value = String(page);
+        if (pdfDoc) pageTotal.textContent = `/ ${pdfDoc.numPages}`;
+        updateUrl();
       }
 
-      async function render() {
-        if (!pdfDoc || rendering) return;
-        rendering = true;
-        try {
-          if (mode === 2) {
-            page = page % 2 === 0 ? Math.max(1, page - 1) : page;
-          }
-          pageInput.value = String(page);
-          pageTotal.textContent = `/ ${pdfDoc.numPages}`;
-          setModeButtons();
-          zoomLabel.textContent = `${Math.round(scale * 100)}%`;
+      async function renderPdfPageToDataUrl(num, renderScale) {
+        const pdfPage = await pdfDoc.getPage(num);
+        const viewport = pdfPage.getViewport({ scale: renderScale });
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        await pdfPage.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+        return canvas.toDataURL('image/jpeg', 0.86);
+      }
 
-          if (mode === 2) {
-            await renderPage(page, leftCanvas);
-            await renderPage(page + 1, rightCanvas);
-          } else {
-            rightCanvas.hidden = true;
-            await renderPage(page, leftCanvas);
+      async function buildPageImages() {
+        const total = pdfDoc.numPages;
+        const images = new Array(total).fill('');
+        const first = await pdfDoc.getPage(1);
+        const base = first.getViewport({ scale: 1 });
+        const targetWidth = Math.min(900, Math.max(420, window.innerWidth * (usePortrait ? 0.72 : 0.42)));
+        const renderScale = Math.min(2, Math.max(1.05, targetWidth / base.width));
+
+        showKidsLoader(`Preparing pages 0/${total}…`);
+        const batch = 3;
+        for (let i = 1; i <= total; i += batch) {
+          const jobs = [];
+          for (let n = i; n < i + batch && n <= total; n += 1) {
+            jobs.push(renderPdfPageToDataUrl(n, renderScale).then((url) => {
+              images[n - 1] = url;
+            }));
           }
-          updateUrl();
-        } finally {
-          rendering = false;
+          await Promise.all(jobs);
+          setKidsLoaderMessage(`Preparing pages ${Math.min(i + batch - 1, total)}/${total}…`);
         }
+        return images;
+      }
+
+      function bookSize() {
+        const stage = document.getElementById('stage');
+        const maxW = Math.min(980, stage.clientWidth - 24);
+        const maxH = Math.min(720, window.innerHeight * 0.62);
+        if (usePortrait) {
+          const width = Math.min(460, maxW);
+          const height = Math.min(maxH, Math.round(width * 1.35));
+          return { width, height };
+        }
+        const width = Math.min(420, Math.floor(maxW / 2) - 8);
+        const height = Math.min(maxH, Math.round(width * 1.35));
+        return { width, height };
+      }
+
+      function destroyFlip() {
+        if (pageFlip) {
+          try { pageFlip.destroy(); } catch { /* ignore */ }
+          pageFlip = null;
+        }
+        flipRoot.innerHTML = '';
+      }
+
+      function createFlipBook(images, startIndex) {
+        destroyFlip();
+        const size = bookSize();
+        pageFlip = new St.PageFlip(flipRoot, {
+          width: size.width,
+          height: size.height,
+          size: 'stretch',
+          minWidth: 280,
+          maxWidth: 1100,
+          minHeight: 360,
+          maxHeight: 900,
+          drawShadow: true,
+          flippingTime: 850,
+          usePortrait,
+          startPage: startIndex,
+          autoSize: true,
+          maxShadowOpacity: 0.45,
+          showCover: true,
+          mobileScrollSupport: false,
+          swipeDistance: 30,
+          useMouseEvents: true,
+          disableFlipByClick: false,
+          showPageCorners: true,
+        });
+        pageFlip.loadFromImages(images);
+        pageFlip.on('flip', (event) => {
+          syncPageUi(event.data);
+          flipping = false;
+        });
+        pageFlip.on('changeOrientation', () => {
+          /* keep selected mode via buttons */
+        });
+        syncPageUi(pageFlip.getCurrentPageIndex());
+        setModeButtons();
+      }
+
+      async function rebuildFlip(keepPage) {
+        if (!pageImages.length) return;
+        const index = Math.max(0, Math.min(pageImages.length - 1, (keepPage || page) - 1));
+        createFlipBook(pageImages, index);
       }
 
       function go(delta) {
-        if (!pdfDoc) return;
-        const step = mode === 2 ? 2 : 1;
-        page = Math.min(pdfDoc.numPages, Math.max(1, page + (delta * step)));
-        render();
+        if (!pageFlip || flipping) return;
+        flipping = true;
+        if (delta > 0) pageFlip.flipNext('top');
+        else pageFlip.flipPrev('top');
+        window.setTimeout(() => { flipping = false; }, 900);
       }
 
       async function textForPages(nums) {
@@ -237,12 +291,14 @@
 
       async function listenCurrent() {
         if (!pdfDoc) return;
-        const pages = mode === 2
-          ? [page, page + 1].filter((n) => n <= pdfDoc.numPages)
-          : [page];
+        const current = pageFlip ? pageFlip.getCurrentPageIndex() + 1 : page;
+        const pages = usePortrait
+          ? [current]
+          : [current % 2 === 0 ? current - 1 : current, (current % 2 === 0 ? current - 1 : current) + 1]
+              .filter((n) => n >= 1 && n <= pdfDoc.numPages);
         showKidsLoader('Preparing listen…');
         try {
-          const text = await textForPages(pages);
+          const text = await textForPages([...new Set(pages)]);
           if (!text) {
             alert('This page has little or no text to read aloud (it may be a scanned image).');
             return;
@@ -251,6 +307,16 @@
         } finally {
           hideKidsLoader();
         }
+      }
+
+      function showEmbedFallback(fileUrl) {
+        flipRoot.hidden = true;
+        document.getElementById('ebookToolbar').querySelectorAll('.tool, .tool-label, #listenBtn, #listenLang, #stopListenBtn').forEach((el) => {
+          el.style.display = 'none';
+        });
+        embedEl.hidden = false;
+        embedEl.src = fileUrl;
+        hintEl.textContent = 'Simple reader mode. Redeploy API PDF proxy for full page-flip + Listen.';
       }
 
       async function bootReader() {
@@ -262,10 +328,10 @@
 
         showKidsLoader('Opening eBook…');
         try {
-          await loadPdfJs();
+          await Promise.all([loadPdfJs(), loadPageFlip()]);
           const book = await loadBook(bookId);
           titleEl.textContent = book.title || 'eBook';
-          metaEl.textContent = book.description || 'Read page by page • Listen aloud';
+          metaEl.textContent = 'Flip pages like a real book • Listen aloud';
           document.title = `${book.title || 'eBook'} · Alpha 25`;
 
           if (book.file_url) {
@@ -275,19 +341,18 @@
             throw new Error('No PDF uploaded for this book');
           }
 
-          pdfjsLib.GlobalWorkerOptions.workerSrc =
-            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
           const buffer = await fetchPdfBuffer(book);
-          if (buffer) {
-            pdfDoc = await pdfjsLib.getDocument({ data: buffer }).promise;
-            page = Math.min(Math.max(1, startPage), pdfDoc.numPages);
-            await render();
-            if (wantListen) listenCurrent();
-          } else {
-            // Browser can open storage PDF via iframe/download, but PDF.js is blocked by CORS.
+          if (!buffer) {
             showEmbedFallback(book.file_url);
+            return;
           }
+
+          pdfDoc = await pdfjsLib.getDocument({ data: buffer }).promise;
+          pageImages = await buildPageImages();
+          const startIndex = Math.min(Math.max(0, startPage - 1), pageImages.length - 1);
+          createFlipBook(pageImages, startIndex);
+          hintEl.innerHTML = 'Drag a page corner, swipe, or use Prev/Next — pages turn with a book-flip effect.';
+          if (wantListen) listenCurrent();
         } catch (error) {
           titleEl.textContent = 'Could not open book';
           metaEl.textContent = error?.message === 'No PDF uploaded for this book'
@@ -301,26 +366,35 @@
 
       document.getElementById('prevBtn').onclick = () => go(-1);
       document.getElementById('nextBtn').onclick = () => go(1);
-      document.getElementById('hotPrev').onclick = () => go(-1);
-      document.getElementById('hotNext').onclick = () => go(1);
-      document.getElementById('mode1Btn').onclick = () => { mode = 1; render(); };
-      document.getElementById('mode2Btn').onclick = () => { mode = 2; render(); };
-      document.getElementById('zoomInBtn').onclick = () => { scale = Math.min(2.2, scale + 0.15); render(); };
-      document.getElementById('zoomOutBtn').onclick = () => { scale = Math.max(0.7, scale - 0.15); render(); };
+      mode1Btn.onclick = async () => {
+        usePortrait = true;
+        setModeButtons();
+        await rebuildFlip(page);
+      };
+      mode2Btn.onclick = async () => {
+        usePortrait = false;
+        setModeButtons();
+        await rebuildFlip(page);
+      };
       document.getElementById('listenBtn').onclick = () => listenCurrent();
       document.getElementById('stopListenBtn').onclick = () => window.speechSynthesis?.cancel();
       pageInput.addEventListener('change', () => {
-        page = Math.min(pdfDoc?.numPages || 1, Math.max(1, Number(pageInput.value) || 1));
-        render();
+        if (!pageFlip) return;
+        const target = Math.min(pageImages.length, Math.max(1, Number(pageInput.value) || 1));
+        pageFlip.flip(target - 1, 'top');
       });
       window.addEventListener('keydown', (event) => {
         if (event.target.matches('input, textarea, select')) return;
         if (event.key === 'ArrowLeft' || event.key === 'PageUp') go(-1);
-        if (event.key === 'ArrowRight' || event.key === 'PageDown') go(1);
-        if (event.key === ' ') {
+        if (event.key === 'ArrowRight' || event.key === 'PageDown' || event.key === ' ') {
           event.preventDefault();
           go(1);
         }
+      });
+      window.addEventListener('resize', () => {
+        if (!pageFlip || !pageImages.length) return;
+        window.clearTimeout(window.__ebookResizeTimer);
+        window.__ebookResizeTimer = window.setTimeout(() => rebuildFlip(page), 220);
       });
 
       bootReader();
