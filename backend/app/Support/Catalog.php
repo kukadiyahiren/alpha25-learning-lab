@@ -21,8 +21,8 @@ class Catalog
             'audio' => [
                 'model' => AudioStory::class,
                 'rules' => [
-                    'language' => ['required', 'string', 'max:50'],
-                    'title' => ['required', 'string', 'max:255'],
+                    'language' => ['nullable', 'string', 'max:50'],
+                    'title' => ['nullable', 'string', 'max:255'],
                     'body' => ['nullable', 'string'],
                     'sort_order' => ['nullable', 'integer'],
                 ],

@@ -1,4 +1,4 @@
-const API_ORIGIN = 'https://alpha25-learning-lab-1.onrender.com';
+const API_ORIGIN = 'http://127.0.0.1:8000';
 
 const NAV_LINKS = [
   ['Home', '../index.html'],

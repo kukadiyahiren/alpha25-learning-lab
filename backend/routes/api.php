@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\CatalogBulkImportController;
 use App\Http\Controllers\Api\CatalogController;
 use App\Http\Controllers\Api\ChapterController;
 use App\Http\Controllers\Api\GradeController;
@@ -29,6 +30,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('admin/subjects', SubjectController::class);
     Route::apiResource('admin/chapters', ChapterController::class);
     Route::apiResource('admin/questions', QuestionController::class);
+
+    Route::get('/admin/{resource}/import-template.xlsx', [CatalogBulkImportController::class, 'templateXlsx'])
+        ->whereIn('resource', ['audio', 'worksheets', 'gk', 'spoken-english', 'phonics']);
+    Route::get('/admin/{resource}/import-template.csv', [CatalogBulkImportController::class, 'templateCsv'])
+        ->whereIn('resource', ['audio', 'worksheets', 'gk', 'spoken-english', 'phonics']);
+    Route::post('/admin/{resource}/import', [CatalogBulkImportController::class, 'import'])
+        ->whereIn('resource', ['audio', 'worksheets', 'gk', 'spoken-english', 'phonics']);
 
     Route::get('/admin/{resource}', [CatalogController::class, 'index']);
     Route::post('/admin/{resource}', [CatalogController::class, 'store']);

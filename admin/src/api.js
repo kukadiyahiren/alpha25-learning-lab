@@ -1,4 +1,4 @@
-export const API_ORIGIN = 'https://alpha25-learning-lab-1.onrender.com';
+export const API_ORIGIN = 'http://127.0.0.1:8000';
 
 export function getToken() {
   return localStorage.getItem('alpha25_token');
@@ -40,4 +40,25 @@ export async function api(path, { method = 'GET', body, formData } = {}) {
   }
 
   return data;
+}
+
+export async function downloadFile(path, filename) {
+  const headers = { Accept: '*/*' };
+  const token = getToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const response = await fetch(`${API_ORIGIN}/api${path}`, { headers });
+  if (!response.ok) {
+    throw new Error('Could not download the sample file.');
+  }
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }

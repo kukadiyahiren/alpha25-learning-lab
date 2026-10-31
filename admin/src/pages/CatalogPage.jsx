@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { api } from '../api';
+import { api, downloadFile } from '../api';
 import { RESOURCES } from '../catalog';
 
 const emptyFrom = (fields) => Object.fromEntries(fields.map((field) => [field.name, '']));
@@ -14,6 +14,10 @@ export default function CatalogPage({ resource }) {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  const [bulkFile, setBulkFile] = useState(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkMessage, setBulkMessage] = useState('');
+  const [bulkError, setBulkError] = useState('');
 
   async function load() {
     const data = await api(`/admin/${resource}`);
@@ -25,6 +29,10 @@ export default function CatalogPage({ resource }) {
     setFiles({});
     setEditing(null);
     setError('');
+    setMessage('');
+    setBulkFile(null);
+    setBulkMessage('');
+    setBulkError('');
     load().catch((err) => setError(err.message));
   }, [resource]);
 
@@ -91,12 +99,84 @@ export default function CatalogPage({ resource }) {
     }
   }
 
+  async function downloadSample(type) {
+    if (!config.bulk) return;
+    setBulkError('');
+    try {
+      const base = config.bulk.sample.replace(/\.csv$/, '');
+      if (type === 'xlsx') {
+        await downloadFile(`/admin/${resource}/import-template.xlsx`, `${base}.xlsx`);
+      } else {
+        await downloadFile(`/admin/${resource}/import-template.csv`, `${base}.csv`);
+      }
+    } catch (err) {
+      setBulkError(err.message);
+    }
+  }
+
+  async function importBulk(event) {
+    event.preventDefault();
+    if (!bulkFile) {
+      setBulkError('Choose a CSV or Excel file first.');
+      return;
+    }
+    setBulkBusy(true);
+    setBulkError('');
+    setBulkMessage('');
+    try {
+      const data = new FormData();
+      data.append('file', bulkFile);
+      const result = await api(`/admin/${resource}/import`, { method: 'POST', formData: data });
+      const extra = result.errors?.length ? ` ${result.errors.join(' ')}` : '';
+      setBulkMessage(`${result.message}${extra}`);
+      setBulkFile(null);
+      event.target.reset();
+      await load();
+    } catch (err) {
+      const first = Object.values(err.errors || {})[0];
+      setBulkError(first?.[0] || err.message);
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
   return (
     <div>
       <div className="top">
         <h1>{config.title}</h1>
         <p>{config.hint}</p>
       </div>
+
+      {config.bulk && (
+        <section className="panel bulk-panel">
+          <h2>Bulk upload</h2>
+          <p className="muted">
+            Download the sample sheet, fill one row per item, then upload the CSV or Excel file.
+            Columns: {config.bulk.columns.map((column) => <code key={column} style={{ marginRight: 6 }}>{column}</code>)}
+            {config.bulk.note ? ` ${config.bulk.note}` : ''}
+          </p>
+          <div className="form-actions">
+            <button className="btn secondary" type="button" onClick={() => downloadSample('xlsx')}>Download Excel sample</button>
+            <button className="btn secondary" type="button" onClick={() => downloadSample('csv')}>Download CSV sample</button>
+            <a className="btn secondary" href={`/${config.bulk.sample}`} download>Local CSV sample</a>
+          </div>
+          <form onSubmit={importBulk} style={{ marginTop: 12 }}>
+            {bulkError && <div className="error">{bulkError}</div>}
+            {bulkMessage && <div className="ok">{bulkMessage}</div>}
+            <label htmlFor="bulk-file">CSV or Excel file</label>
+            <input
+              id="bulk-file"
+              type="file"
+              accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+              onChange={(e) => setBulkFile(e.target.files?.[0] || null)}
+            />
+            <div className="form-actions">
+              <button className="btn" type="submit" disabled={bulkBusy}>{bulkBusy ? 'Importing…' : 'Upload sheet'}</button>
+            </div>
+          </form>
+        </section>
+      )}
+
       <div className="layout-split">
         <form className="panel" onSubmit={save}>
           <h2>{editing ? 'Edit' : 'Add'}</h2>

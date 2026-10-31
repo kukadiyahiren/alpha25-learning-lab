@@ -2,9 +2,14 @@ export const RESOURCES = {
   audio: {
     title: 'Audio stories',
     hint: 'Stories shown on the Audio page. Upload an audio file, or leave it empty and the site will read the text aloud.',
+    bulk: {
+      columns: ['language', 'title', 'body', 'sort_order'],
+      sample: 'audio-stories-sample.csv',
+      note: 'Audio files are not imported from the sheet; add those later with Edit if needed.',
+    },
     fields: [
-      { name: 'language', label: 'Language', required: true, placeholder: 'Gujarati' },
-      { name: 'title', label: 'Title', required: true },
+      { name: 'language', label: 'Language', placeholder: 'Gujarati' },
+      { name: 'title', label: 'Title' },
       { name: 'body', label: 'Story text', type: 'textarea' },
       { name: 'sort_order', label: 'Order', type: 'number' },
       { name: 'audio', label: 'Audio file', type: 'file', accept: 'audio/*' },
@@ -26,6 +31,11 @@ export const RESOURCES = {
   worksheets: {
     title: 'Worksheets',
     hint: 'Practice sheets by grade. Upload a PDF when you have one.',
+    bulk: {
+      columns: ['grade', 'title', 'description', 'sort_order'],
+      sample: 'worksheets-sample.csv',
+      note: 'PDF files are not imported from the sheet; attach them later with Edit if needed.',
+    },
     fields: [
       { name: 'grade', label: 'Grade', required: true, placeholder: '1' },
       { name: 'title', label: 'Title', required: true },
@@ -38,6 +48,11 @@ export const RESOURCES = {
   gk: {
     title: 'GK questions',
     hint: 'Objective questions grouped by category on the GK page.',
+    bulk: {
+      columns: ['category', 'question', 'answer', 'sort_order'],
+      sample: 'gk-questions-sample.csv',
+      note: 'One question per row. Use the same category name to group questions.',
+    },
     fields: [
       { name: 'category', label: 'Category', required: true, placeholder: 'Gujarat' },
       { name: 'question', label: 'Question', type: 'textarea', required: true },
@@ -49,6 +64,11 @@ export const RESOURCES = {
   'spoken-english': {
     title: 'Spoken English',
     hint: 'Day-wise speaking lessons. Upload the audio students should hear.',
+    bulk: {
+      columns: ['day_label', 'topic', 'script', 'sort_order'],
+      sample: 'spoken-english-sample.csv',
+      note: 'Audio files are not imported from the sheet; add those later with Edit if needed.',
+    },
     fields: [
       { name: 'day_label', label: 'Day', required: true, placeholder: 'Day 1' },
       { name: 'topic', label: 'Topic', required: true },
@@ -61,6 +81,11 @@ export const RESOURCES = {
   phonics: {
     title: 'Phonics',
     hint: 'Letter and word cards. Upload the sound students hear.',
+    bulk: {
+      columns: ['day_label', 'letter', 'word', 'sort_order'],
+      sample: 'phonics-sample.csv',
+      note: 'Audio files are not imported from the sheet; add those later with Edit if needed.',
+    },
     fields: [
       { name: 'day_label', label: 'Day', required: true, placeholder: 'Day 1' },
       { name: 'letter', label: 'Letter', required: true, placeholder: 'A a' },
