@@ -1091,6 +1091,14 @@ audio { width: 100%; margin-top: 10px; }
   margin: 12px 4px 0;
   font-size: 0.92rem;
 }
+.ebook-embed {
+  width: min(960px, 100%);
+  height: min(75vh, 820px);
+  border: 0;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 18px 28px rgba(0,0,0,0.35);
+}
 
 @media (max-width: 820px) {
   .ebook-toolbar { gap: 6px; }

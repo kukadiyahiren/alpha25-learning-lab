@@ -6,7 +6,7 @@
   <title>eBook Reader</title>
   <link rel="icon" href="../favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="../favicon.svg">
-  <link rel="stylesheet" href="../style.css?v=16">
+  <link rel="stylesheet" href="../style.css?v=17">
 </head>
 <body class="ebook-reader-page">
   <nav id="nav"></nav>
@@ -23,7 +23,7 @@
       </div>
     </header>
 
-    <section class="ebook-toolbar" aria-label="Reader controls">
+    <section class="ebook-toolbar" id="ebookToolbar" aria-label="Reader controls">
       <button type="button" class="tool" id="prevBtn" title="Previous page">‹ Prev</button>
       <label class="tool-label">
         Page
@@ -53,14 +53,15 @@
         <canvas id="pageLeft" class="ebook-page"></canvas>
         <canvas id="pageRight" class="ebook-page"></canvas>
       </div>
+      <iframe id="ebookEmbed" class="ebook-embed" title="PDF reader" hidden></iframe>
       <button type="button" class="ebook-nav-hotspot right" id="hotNext" aria-label="Next page"></button>
     </section>
 
-    <p class="ebook-hint muted">Tip: use ← → keys, or click the left/right side. <b>2 pages</b> is like Archive.org reading mode.</p>
+    <p class="ebook-hint muted" id="ebookHint">Tip: use ← → keys, or click the left/right side. <b>2 pages</b> is like Archive.org reading mode.</p>
   </main>
 
   <footer>© Alpha 25 Learning Lab</footer>
-  <script src="../app.js?v=16"></script>
+  <script src="../app.js?v=17"></script>
   <script>
     (function () {
       const params = new URLSearchParams(location.search);
@@ -86,8 +87,21 @@
       let scale = 1.15;
       let rendering = false;
 
-      function pdfProxyUrl(id) {
-        return `${API_ORIGIN}/api/ebooks/${id}/file`;
+      const embedEl = document.getElementById('ebookEmbed');
+      const toolbarEl = document.getElementById('ebookToolbar');
+      const hintEl = document.getElementById('ebookHint');
+      let embedMode = false;
+
+      function candidatePdfUrls(book) {
+        const urls = [];
+        if (book?.id) {
+          urls.push(`${API_ORIGIN}/api/book/${book.id}/pdf`);
+          urls.push(`${API_ORIGIN}/api/ebooks/${book.id}/file`);
+        }
+        if (book?.file_path) {
+          urls.push(`${API_ORIGIN}/api/public-file/${String(book.file_path).split('/').map(encodeURIComponent).join('/')}`);
+        }
+        return urls;
       }
 
       function loadPdfJs() {
@@ -103,30 +117,45 @@
 
       async function loadBook(id) {
         try {
-          return await loadJson(`/ebooks/${id}`, { silent: true });
+          return await loadJson(`/book/${id}`, { silent: true });
         } catch {
-          // Older API deploys may not have /ebooks/{id}; fall back to list.
-          const books = await loadJson('/ebooks', { silent: true });
-          const book = (books || []).find((item) => String(item.id) === String(id));
-          if (!book) throw new Error('Book not found');
-          return book;
+          try {
+            return await loadJson(`/ebooks/${id}`, { silent: true });
+          } catch {
+            const books = await loadJson('/ebooks', { silent: true });
+            const book = (books || []).find((item) => String(item.id) === String(id));
+            if (!book) throw new Error('Book not found');
+            return book;
+          }
         }
       }
 
-      async function resolvePdfSource(book) {
-        const proxy = pdfProxyUrl(book.id);
-        try {
-          const probe = await fetch(proxy, { method: 'GET', headers: { Accept: 'application/pdf' } });
-          if (probe.ok) {
-            const buffer = await probe.arrayBuffer();
-            return { data: buffer };
+      async function fetchPdfBuffer(book) {
+        for (const url of candidatePdfUrls(book)) {
+          try {
+            const response = await fetch(url, { headers: { Accept: 'application/pdf' } });
+            if (!response.ok) continue;
+            const type = response.headers.get('content-type') || '';
+            if (type.includes('application/json')) continue;
+            return await response.arrayBuffer();
+          } catch (error) {
+            console.warn('PDF candidate failed', url, error);
           }
-        } catch (error) {
-          console.warn('PDF proxy unavailable, trying direct file URL', error);
         }
-        if (!book.file_url) throw new Error('No PDF uploaded for this book');
-        // Direct storage URL (may fail CORS on some hosts)
-        return { url: book.file_url };
+        return null;
+      }
+
+      function showEmbedFallback(fileUrl) {
+        embedMode = true;
+        spread.hidden = true;
+        document.getElementById('hotPrev').hidden = true;
+        document.getElementById('hotNext').hidden = true;
+        toolbarEl.querySelectorAll('.tool, .tool-label, #zoomLabel, #listenBtn, #listenLang, #stopListenBtn').forEach((el) => {
+          el.style.display = 'none';
+        });
+        embedEl.hidden = false;
+        embedEl.src = fileUrl;
+        hintEl.innerHTML = 'Simple reader mode (Download PDF works here). Full page-flip + Listen needs the API PDF proxy after redeploy.';
       }
 
       function setModeButtons() {
@@ -249,16 +278,21 @@
           pdfjsLib.GlobalWorkerOptions.workerSrc =
             'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-          const source = await resolvePdfSource(book);
-          pdfDoc = await pdfjsLib.getDocument(source).promise;
-          page = Math.min(Math.max(1, startPage), pdfDoc.numPages);
-          await render();
-          if (wantListen) listenCurrent();
+          const buffer = await fetchPdfBuffer(book);
+          if (buffer) {
+            pdfDoc = await pdfjsLib.getDocument({ data: buffer }).promise;
+            page = Math.min(Math.max(1, startPage), pdfDoc.numPages);
+            await render();
+            if (wantListen) listenCurrent();
+          } else {
+            // Browser can open storage PDF via iframe/download, but PDF.js is blocked by CORS.
+            showEmbedFallback(book.file_url);
+          }
         } catch (error) {
           titleEl.textContent = 'Could not open book';
           metaEl.textContent = error?.message === 'No PDF uploaded for this book'
             ? 'This eBook has no PDF yet. Upload a PDF from Admin → eBooks.'
-            : 'Could not load the PDF. If Download works but Read fails, redeploy the API (book file route), then retry.';
+            : 'Could not load the PDF. Try Download PDF, or redeploy API and retry Read.';
           console.error(error);
         } finally {
           hideKidsLoader(true);
