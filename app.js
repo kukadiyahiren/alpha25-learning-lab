@@ -118,6 +118,9 @@ function syncNavOffset() {
 }
 
 function wireNavInteractions(nav) {
+  if (nav._navAbort) nav._navAbort.abort();
+  nav._navAbort = new AbortController();
+  const { signal } = nav._navAbort;
   const toggle = nav.querySelector('.nav-toggle');
   const drawer = nav.querySelector('.nav-drawer');
 
@@ -130,7 +133,7 @@ function wireNavInteractions(nav) {
     toggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
     document.body.classList.toggle('nav-open', open);
     syncNavOffset();
-  });
+  }, { signal });
 
   window.addEventListener('resize', () => {
     if (window.innerWidth > 980 && drawer && !drawer.hasAttribute('hidden')) {
@@ -140,7 +143,7 @@ function wireNavInteractions(nav) {
       document.body.classList.remove('nav-open');
     }
     syncNavOffset();
-  });
+  }, { signal });
 }
 
 function ensurePlayfulBackground() {
@@ -165,29 +168,41 @@ function canUseCursorFun() {
 }
 
 function ensureCursorFun() {
-  if (!canUseCursorFun() || document.querySelector('.cursor-fun')) return;
+  if (!canUseCursorFun()) return;
+  let layer = document.querySelector('.cursor-fun');
+  if (!layer) {
+    layer = document.createElement('div');
+    layer.className = 'cursor-fun';
+    layer.setAttribute('aria-hidden', 'true');
+    layer.innerHTML = `<span class="cursor-ring"></span><span class="cursor-dot"></span>`;
+    document.body.appendChild(layer);
+  }
 
-  const layer = document.createElement('div');
-  layer.className = 'cursor-fun';
-  layer.setAttribute('aria-hidden', 'true');
-  layer.innerHTML = `<span class="cursor-ring"></span><span class="cursor-dot"></span>`;
-  document.body.appendChild(layer);
+  if (window.__cursorFunBound) return;
+  window.__cursorFunBound = true;
 
-  const ring = layer.querySelector('.cursor-ring');
-  const dot = layer.querySelector('.cursor-dot');
   const colors = ['#0d9488', '#2563eb', '#ff6b4a', '#ffb703', '#ec4899', '#8b5cf6'];
   let lastTrail = 0;
-  let mx = -100;
-  let my = -100;
+
+  const getParts = () => {
+    const root = document.querySelector('.cursor-fun');
+    return {
+      layer: root,
+      ring: root?.querySelector('.cursor-ring'),
+      dot: root?.querySelector('.cursor-dot'),
+    };
+  };
 
   const moveRing = (x, y) => {
-    mx = x;
-    my = y;
+    const { ring, dot } = getParts();
+    if (!ring || !dot) return;
     ring.style.transform = `translate3d(${x}px, ${y}px, 0)`;
     dot.style.transform = `translate3d(${x}px, ${y}px, 0)`;
   };
 
   const spawnSpark = (x, y, options = {}) => {
+    const { layer: root } = getParts();
+    if (!root) return;
     const spark = document.createElement('span');
     const kind = options.kind || 'dot';
     const color = colors[Math.floor(Math.random() * colors.length)];
@@ -202,7 +217,7 @@ function ensureCursorFun() {
     spark.style.setProperty('--sy', `${y}px`);
     spark.style.setProperty('--dx', `${dx}px`);
     spark.style.setProperty('--dy', `${dy}px`);
-    layer.appendChild(spark);
+    root.appendChild(spark);
     window.setTimeout(() => spark.remove(), 750);
   };
 
@@ -239,23 +254,62 @@ function ensureCursorFun() {
   }, { passive: true });
 
   document.addEventListener('mousedown', (event) => {
-    ring.classList.add('is-press');
+    getParts().ring?.classList.add('is-press');
     if (!skipTarget(event.target)) burst(event.clientX, event.clientY);
   });
 
   document.addEventListener('mouseup', () => {
-    ring.classList.remove('is-press');
+    getParts().ring?.classList.remove('is-press');
   });
 
   document.addEventListener('mouseleave', () => {
     moveRing(-100, -100);
   });
-
-  // Keep ring visible if mouse stays still after load
-  moveRing(mx, my);
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+function prefersReducedMotion() {
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+function isSmoothNavLink(anchor) {
+  if (!(anchor instanceof HTMLAnchorElement)) return false;
+  if (anchor.target && anchor.target !== '_self') return false;
+  if (anchor.hasAttribute('download')) return false;
+  const href = anchor.getAttribute('href');
+  if (!href || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:') || href.startsWith('javascript:')) {
+    return false;
+  }
+  let url;
+  try {
+    url = new URL(anchor.href, location.href);
+  } catch {
+    return false;
+  }
+  if (url.origin !== location.origin) return false;
+  if (url.pathname === location.pathname && url.search === location.search) return false;
+  return true;
+}
+
+function syncPageStyles(doc, pageUrl) {
+  const nextHrefs = [...doc.querySelectorAll('link[rel="stylesheet"]')].map((link) => (
+    new URL(link.getAttribute('href'), pageUrl).href
+  ));
+  const nextSet = new Set(nextHrefs);
+  [...document.head.querySelectorAll('link[rel="stylesheet"]')].forEach((link) => {
+    if (!nextSet.has(link.href)) link.remove();
+  });
+  nextHrefs.forEach((href) => {
+    if ([...document.head.querySelectorAll('link[rel="stylesheet"]')].some((link) => link.href === href)) return;
+    const el = document.createElement('link');
+    el.rel = 'stylesheet';
+    el.href = href;
+    document.head.appendChild(el);
+  });
+}
+
+function bootPage() {
+  document.body.classList.remove('nav-open', 'is-navigating');
+  document.documentElement.classList.remove('soft-leaving', 'soft-entering');
   ensurePlayfulBackground();
   ensureCursorFun();
   const nav = document.getElementById('nav');
@@ -264,6 +318,150 @@ document.addEventListener('DOMContentLoaded', () => {
   nav.innerHTML = buildNav(isRoot ? 'root' : '');
   wireNavInteractions(nav);
   syncNavOffset();
+}
+
+function isPersistentNode(node) {
+  if (!(node instanceof Element)) return false;
+  return node.classList.contains('bg-fun')
+    || node.classList.contains('cursor-fun')
+    || node.classList.contains('page-veil');
+}
+
+function markSoftPageRoots() {
+  [...document.body.children].forEach((child) => {
+    if (isPersistentNode(child)) {
+      child.classList.remove('soft-page-root');
+      return;
+    }
+    child.classList.add('soft-page-root');
+  });
+}
+
+function swapPageBody(doc) {
+  const keep = [...document.body.children].filter((child) => isPersistentNode(child));
+  const nextNodes = [];
+  const nextScripts = [];
+
+  [...doc.body.childNodes].forEach((node) => {
+    if (node.nodeName === 'SCRIPT') {
+      const src = node.getAttribute?.('src') || '';
+      if (src.includes('app.js')) return;
+      nextScripts.push(node);
+      return;
+    }
+    nextNodes.push(document.importNode(node, true));
+  });
+
+  [...document.body.children].forEach((child) => {
+    if (!isPersistentNode(child)) child.remove();
+  });
+
+  nextNodes.forEach((node) => document.body.appendChild(node));
+  keep.forEach((node) => document.body.appendChild(node));
+
+  nextScripts.forEach((oldScript) => {
+    const script = document.createElement('script');
+    [...(oldScript.attributes || [])].forEach((attr) => script.setAttribute(attr.name, attr.value));
+    const src = oldScript.getAttribute?.('src') || '';
+    if (!src) script.textContent = oldScript.textContent || '';
+    document.body.appendChild(script);
+  });
+
+  markSoftPageRoots();
+}
+
+let softNavigating = false;
+
+function wait(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+async function softNavigate(url, { push = true } = {}) {
+  if (softNavigating) return;
+  softNavigating = true;
+  document.body.classList.add('is-navigating');
+  markSoftPageRoots();
+
+  const pageUrl = new URL(url, location.href).href;
+  const useViewTransition = typeof document.startViewTransition === 'function' && !prefersReducedMotion();
+
+  try {
+    const response = await fetch(pageUrl, { headers: { Accept: 'text/html' } });
+    if (!response.ok) throw new Error('Could not open page');
+    const html = await response.text();
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+
+    const apply = () => {
+      document.title = doc.title || document.title;
+      syncPageStyles(doc, pageUrl);
+      document.body.className = doc.body.className || '';
+      swapPageBody(doc);
+      if (push) history.pushState({ soft: true }, '', pageUrl);
+      bootPage();
+      markSoftPageRoots();
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    };
+
+    if (useViewTransition) {
+      await document.startViewTransition(apply).finished.catch(() => {});
+    } else if (prefersReducedMotion()) {
+      apply();
+    } else {
+      document.documentElement.classList.add('soft-leaving');
+      await wait(200);
+      apply();
+      document.documentElement.classList.remove('soft-leaving');
+      document.documentElement.classList.add('soft-entering');
+      await wait(380);
+      document.documentElement.classList.remove('soft-entering');
+    }
+  } catch {
+    location.href = pageUrl;
+  } finally {
+    softNavigating = false;
+    document.body.classList.remove('is-navigating');
+    document.documentElement.classList.remove('soft-leaving', 'soft-entering');
+  }
+}
+
+function wireSmoothPageTransitions() {
+  if (window.__smoothNavBound) return;
+  window.__smoothNavBound = true;
+
+  document.addEventListener('click', (event) => {
+    if (event.defaultPrevented || event.button !== 0) return;
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    const anchor = event.target.closest('a[href]');
+    if (!isSmoothNavLink(anchor)) return;
+    event.preventDefault();
+    softNavigate(anchor.href);
+  });
+
+  document.addEventListener('pointerdown', (event) => {
+    const anchor = event.target.closest('a[href]');
+    if (!isSmoothNavLink(anchor)) return;
+    const href = anchor.href;
+    if ([...document.head.querySelectorAll('link[rel="prefetch"]')].some((item) => item.href === href)) return;
+    const link = document.createElement('link');
+    link.rel = 'prefetch';
+    link.href = href;
+    link.as = 'document';
+    document.head.appendChild(link);
+  }, { passive: true });
+
+  window.addEventListener('popstate', () => {
+    softNavigate(location.href, { push: false });
+  });
+
+  if (!history.state || !history.state.soft) {
+    history.replaceState({ soft: true }, '', location.href);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  bootPage();
+  markSoftPageRoots();
+  wireSmoothPageTransitions();
 });
 
 function esc(value) {
