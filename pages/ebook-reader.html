@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="gu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>eBook Reader</title>
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="../favicon.svg">
+  <link rel="stylesheet" href="../style.css?v=15">
+</head>
+<body class="ebook-reader-page">
+  <nav id="nav"></nav>
+
+  <main class="ebook-shell">
+    <header class="ebook-top">
+      <a class="btn secondary small" href="ebooks.html">← Library</a>
+      <div class="ebook-heading">
+        <h1 id="bookTitle">Loading book…</h1>
+        <p id="bookMeta" class="muted"></p>
+      </div>
+      <div class="ebook-top-actions">
+        <a id="downloadBtn" class="btn secondary small" href="#" target="_blank" rel="noopener" hidden>Download PDF</a>
+      </div>
+    </header>
+
+    <section class="ebook-toolbar" aria-label="Reader controls">
+      <button type="button" class="tool" id="prevBtn" title="Previous page">‹ Prev</button>
+      <label class="tool-label">
+        Page
+        <input id="pageInput" type="number" min="1" value="1">
+        <span id="pageTotal">/ 1</span>
+      </label>
+      <button type="button" class="tool" id="nextBtn" title="Next page">Next ›</button>
+      <span class="toolbar-gap"></span>
+      <button type="button" class="tool" id="mode1Btn" data-mode="1">1 page</button>
+      <button type="button" class="tool active" id="mode2Btn" data-mode="2">2 pages</button>
+      <button type="button" class="tool" id="zoomOutBtn">−</button>
+      <span id="zoomLabel" class="size-badge">100%</span>
+      <button type="button" class="tool" id="zoomInBtn">+</button>
+      <span class="toolbar-gap"></span>
+      <select id="listenLang" aria-label="Listen language">
+        <option value="gu-IN">Gujarati</option>
+        <option value="hi-IN">Hindi</option>
+        <option value="en-IN">English</option>
+      </select>
+      <button type="button" class="btn small" id="listenBtn">🔊 Listen page</button>
+      <button type="button" class="btn secondary small" id="stopListenBtn">Stop</button>
+    </section>
+
+    <section class="ebook-stage" id="stage">
+      <button type="button" class="ebook-nav-hotspot left" id="hotPrev" aria-label="Previous page"></button>
+      <div class="ebook-spread" id="spread">
+        <canvas id="pageLeft" class="ebook-page"></canvas>
+        <canvas id="pageRight" class="ebook-page"></canvas>
+      </div>
+      <button type="button" class="ebook-nav-hotspot right" id="hotNext" aria-label="Next page"></button>
+    </section>
+
+    <p class="ebook-hint muted">Tip: use ← → keys, or click the left/right side. <b>2 pages</b> is like Archive.org reading mode.</p>
+  </main>
+
+  <footer>© Alpha 25 Learning Lab</footer>
+  <script src="../app.js?v=15"></script>
+  <script>
+    (function () {
+      const params = new URLSearchParams(location.search);
+      const bookId = params.get('id');
+      const startPage = Math.max(1, Number(params.get('page') || 1));
+      const wantListen = location.hash === '#listen';
+
+      const titleEl = document.getElementById('bookTitle');
+      const metaEl = document.getElementById('bookMeta');
+      const pageInput = document.getElementById('pageInput');
+      const pageTotal = document.getElementById('pageTotal');
+      const zoomLabel = document.getElementById('zoomLabel');
+      const leftCanvas = document.getElementById('pageLeft');
+      const rightCanvas = document.getElementById('pageRight');
+      const spread = document.getElementById('spread');
+      const downloadBtn = document.getElementById('downloadBtn');
+      const listenLang = document.getElementById('listenLang');
+
+      let pdfDoc = null;
+      let page = startPage;
+      let mode = params.get('mode') === '1up' || window.innerWidth < 820 ? 1 : 2;
+      if (params.get('mode') === '2up') mode = 2;
+      let scale = 1.15;
+      let rendering = false;
+
+      function pdfFileUrl(id) {
+        return `${API_ORIGIN}/api/ebooks/${id}/file`;
+      }
+
+      function loadPdfJs() {
+        if (window.pdfjsLib) return Promise.resolve();
+        return new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+          script.onload = resolve;
+          script.onerror = () => reject(new Error('PDF engine failed to load'));
+          document.head.appendChild(script);
+        });
+      }
+
+      function setModeButtons() {
+        document.getElementById('mode1Btn').classList.toggle('active', mode === 1);
+        document.getElementById('mode2Btn').classList.toggle('active', mode === 2);
+        spread.classList.toggle('is-single', mode === 1);
+        rightCanvas.hidden = mode === 1;
+      }
+
+      function updateUrl() {
+        const url = new URL(location.href);
+        url.searchParams.set('id', String(bookId));
+        url.searchParams.set('page', String(page));
+        url.searchParams.set('mode', mode === 2 ? '2up' : '1up');
+        history.replaceState({ soft: true }, '', url);
+      }
+
+      async function renderPage(num, canvas) {
+        if (!pdfDoc || num < 1 || num > pdfDoc.numPages) {
+          const ctx = canvas.getContext('2d');
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          canvas.hidden = true;
+          return;
+        }
+        canvas.hidden = false;
+        const pdfPage = await pdfDoc.getPage(num);
+        const ratio = window.devicePixelRatio || 1;
+        const viewport = pdfPage.getViewport({ scale: scale * ratio });
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        canvas.style.width = `${viewport.width / ratio}px`;
+        canvas.style.height = `${viewport.height / ratio}px`;
+        await pdfPage.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+      }
+
+      async function render() {
+        if (!pdfDoc || rendering) return;
+        rendering = true;
+        try {
+          if (mode === 2) {
+            page = page % 2 === 0 ? Math.max(1, page - 1) : page;
+          }
+          pageInput.value = String(page);
+          pageTotal.textContent = `/ ${pdfDoc.numPages}`;
+          setModeButtons();
+          zoomLabel.textContent = `${Math.round(scale * 100)}%`;
+
+          if (mode === 2) {
+            await renderPage(page, leftCanvas);
+            await renderPage(page + 1, rightCanvas);
+          } else {
+            rightCanvas.hidden = true;
+            await renderPage(page, leftCanvas);
+          }
+          updateUrl();
+        } finally {
+          rendering = false;
+        }
+      }
+
+      function go(delta) {
+        if (!pdfDoc) return;
+        const step = mode === 2 ? 2 : 1;
+        page = Math.min(pdfDoc.numPages, Math.max(1, page + (delta * step)));
+        render();
+      }
+
+      async function textForPages(nums) {
+        const chunks = [];
+        for (const num of nums) {
+          if (!pdfDoc || num < 1 || num > pdfDoc.numPages) continue;
+          const pdfPage = await pdfDoc.getPage(num);
+          const content = await pdfPage.getTextContent();
+          const text = content.items.map((item) => item.str).join(' ').replace(/\s+/g, ' ').trim();
+          if (text) chunks.push(text);
+        }
+        return chunks.join('\n\n');
+      }
+
+      async function listenCurrent() {
+        if (!pdfDoc) return;
+        const pages = mode === 2
+          ? [page, page + 1].filter((n) => n <= pdfDoc.numPages)
+          : [page];
+        showKidsLoader('Preparing listen…');
+        try {
+          const text = await textForPages(pages);
+          if (!text) {
+            alert('This page has little or no text to read aloud (it may be a scanned image).');
+            return;
+          }
+          speak(text, listenLang.value || 'gu-IN');
+        } finally {
+          hideKidsLoader();
+        }
+      }
+
+      async function bootReader() {
+        if (!bookId) {
+          titleEl.textContent = 'Book not found';
+          metaEl.textContent = 'Open a book from the eBooks library.';
+          return;
+        }
+
+        showKidsLoader('Opening eBook…');
+        try {
+          await loadPdfJs();
+          const book = await loadJson(`/ebooks/${bookId}`, { silent: true });
+          titleEl.textContent = book.title || 'eBook';
+          metaEl.textContent = book.description || 'Read page by page • Listen aloud';
+          document.title = `${book.title || 'eBook'} · Alpha 25`;
+
+          if (book.file_url) {
+            downloadBtn.hidden = false;
+            downloadBtn.href = book.file_url;
+          }
+
+          pdfjsLib.GlobalWorkerOptions.workerSrc =
+            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+          pdfDoc = await pdfjsLib.getDocument({ url: pdfFileUrl(bookId) }).promise;
+          page = Math.min(Math.max(1, startPage), pdfDoc.numPages);
+          await render();
+          if (wantListen) listenCurrent();
+        } catch (error) {
+          titleEl.textContent = 'Could not open book';
+          metaEl.textContent = 'Check that a PDF is uploaded for this eBook, then try again.';
+          console.error(error);
+        } finally {
+          hideKidsLoader(true);
+        }
+      }
+
+      document.getElementById('prevBtn').onclick = () => go(-1);
+      document.getElementById('nextBtn').onclick = () => go(1);
+      document.getElementById('hotPrev').onclick = () => go(-1);
+      document.getElementById('hotNext').onclick = () => go(1);
+      document.getElementById('mode1Btn').onclick = () => { mode = 1; render(); };
+      document.getElementById('mode2Btn').onclick = () => { mode = 2; render(); };
+      document.getElementById('zoomInBtn').onclick = () => { scale = Math.min(2.2, scale + 0.15); render(); };
+      document.getElementById('zoomOutBtn').onclick = () => { scale = Math.max(0.7, scale - 0.15); render(); };
+      document.getElementById('listenBtn').onclick = () => listenCurrent();
+      document.getElementById('stopListenBtn').onclick = () => window.speechSynthesis?.cancel();
+      pageInput.addEventListener('change', () => {
+        page = Math.min(pdfDoc?.numPages || 1, Math.max(1, Number(pageInput.value) || 1));
+        render();
+      });
+      window.addEventListener('keydown', (event) => {
+        if (event.target.matches('input, textarea, select')) return;
+        if (event.key === 'ArrowLeft' || event.key === 'PageUp') go(-1);
+        if (event.key === 'ArrowRight' || event.key === 'PageDown') go(1);
+        if (event.key === ' ') {
+          event.preventDefault();
+          go(1);
+        }
+      });
+
+      bootReader();
+    })();
+  </script>
+</body>
+</html>

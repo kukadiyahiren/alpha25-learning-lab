@@ -20,4 +20,4 @@ RUN composer dump-autoload --optimize \
 ENV PORT=10000
 EXPOSE 10000
 
-CMD ["sh", "-c", "php -d upload_max_filesize=32M -d post_max_size=40M artisan serve --host=0.0.0.0 --port=${PORT}"]
+CMD ["sh", "-c", "php -d upload_max_filesize=64M -d post_max_size=72M -d max_file_uploads=20 artisan serve --host=0.0.0.0 --port=${PORT}"]

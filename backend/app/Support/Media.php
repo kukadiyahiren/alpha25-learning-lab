@@ -18,7 +18,12 @@ class Media
 
     public static function store(UploadedFile $file, string $folder): string
     {
-        return $file->store($folder, 'public');
+        $path = $file->store($folder, 'public');
+        if (! $path) {
+            throw new \RuntimeException('Could not save the uploaded file. Check storage permissions.');
+        }
+
+        return $path;
     }
 
     public static function delete(?string $path): void

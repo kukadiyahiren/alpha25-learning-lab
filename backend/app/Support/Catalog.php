@@ -8,14 +8,16 @@ use App\Models\GkQuestion;
 use App\Models\PhonicsLesson;
 use App\Models\SpokenEnglishLesson;
 use App\Models\Worksheet;
+use Illuminate\Validation\Rules\File;
 
 class Catalog
 {
     public static function get(string $resource): array
     {
-        $audio = ['nullable', 'file', 'mimes:mp3,wav,ogg,m4a,webm', 'max:20480'];
-        $document = ['nullable', 'file', 'mimes:pdf,doc,docx', 'max:30720'];
-        $image = ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:5120'];
+        // Use File::types() so PDF uploads are not rejected when browser/OS mime is octet-stream.
+        $audio = ['nullable', File::types(['mp3', 'wav', 'ogg', 'm4a', 'webm'])->max(20 * 1024)];
+        $document = ['nullable', File::types(['pdf', 'doc', 'docx'])->max(50 * 1024)];
+        $image = ['nullable', File::types(['jpg', 'jpeg', 'png', 'webp'])->max(5 * 1024)];
 
         $map = [
             'audio' => [

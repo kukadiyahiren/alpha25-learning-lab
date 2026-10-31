@@ -18,13 +18,13 @@ export const RESOURCES = {
   },
   ebooks: {
     title: 'eBooks',
-    hint: 'Books shown in the eBook library. Add a cover image and a PDF.',
+    hint: 'Add a title and upload a PDF (up to 50 MB). Cover image is optional. After save, students can read it in the book viewer.',
     fields: [
       { name: 'title', label: 'Title', required: true },
       { name: 'description', label: 'Description', type: 'textarea' },
       { name: 'sort_order', label: 'Order', type: 'number' },
-      { name: 'cover', label: 'Cover image', type: 'file', accept: 'image/*' },
-      { name: 'file', label: 'Book file (PDF)', type: 'file', accept: '.pdf,application/pdf' },
+      { name: 'cover', label: 'Cover image (optional)', type: 'file', accept: 'image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp' },
+      { name: 'file', label: 'Book file (PDF)', type: 'file', accept: '.pdf,application/pdf', required: true, maxMb: 50 },
     ],
     columns: ['title'],
   },

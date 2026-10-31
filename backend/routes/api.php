@@ -16,6 +16,8 @@ Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10
 Route::get('/classes', [PublicContentController::class, 'classes']);
 Route::get('/audio', [PublicContentController::class, 'audio']);
 Route::get('/ebooks', [PublicContentController::class, 'ebooks']);
+Route::get('/ebooks/{id}', [PublicContentController::class, 'ebook'])->whereNumber('id');
+Route::get('/ebooks/{id}/file', [PublicContentController::class, 'ebookFile'])->whereNumber('id');
 Route::get('/worksheets', [PublicContentController::class, 'worksheets']);
 Route::get('/gk', [PublicContentController::class, 'gk']);
 Route::get('/spoken-english', [PublicContentController::class, 'spokenEnglish']);

@@ -3,18 +3,20 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>eBooks</title><link rel="icon" href="../favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="../favicon.svg">
-  <link rel="stylesheet" href="../style.css?v=13">
+  <title>eBooks</title>
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="../favicon.svg">
+  <link rel="stylesheet" href="../style.css?v=15">
 </head>
 <body>
   <header class="hero">
     <div class="brand">📚 eBooks</div>
-    <p>Digital book library</p>
+    <p>Open books like a real reader — flip pages and listen</p>
   </header>
   <nav id="nav"></nav>
   <main class="page"><div id="books" class="grid"></div></main>
   <footer>© Alpha 25 Learning Lab</footer>
-  <script src="../app.js?v=13"></script>
+  <script src="../app.js?v=15"></script>
   <script>
     loadJson('/ebooks').then((books) => {
       const box = document.getElementById('books');
@@ -23,11 +25,15 @@
         return;
       }
       box.innerHTML = books.map((book) => `
-        <div class="card">
-          ${book.cover_url ? `<img class="cover" src="${esc(book.cover_url)}" alt="">` : ''}
+        <div class="card ebook-card">
+          ${book.cover_url ? `<img class="cover" src="${esc(book.cover_url)}" alt="">` : `<div class="cover ebook-cover-fallback">📚</div>`}
           <h2>${esc(book.title)}</h2>
-          <p>${esc(book.description)}</p>
-          ${book.file_url ? `<a class="btn" href="${esc(book.file_url)}" target="_blank" rel="noopener">Open / Download</a>` : ''}
+          <p>${esc(book.description || '')}</p>
+          <div class="row-actions" style="margin-top:12px">
+            ${book.file_url ? `<a class="btn" href="ebook-reader.html?id=${esc(book.id)}&mode=2up">📖 Read book</a>` : ''}
+            ${book.file_url ? `<a class="btn secondary" href="ebook-reader.html?id=${esc(book.id)}&mode=2up#listen">🔊 Read & listen</a>` : ''}
+            ${book.file_url ? `<a class="btn secondary" href="${esc(book.file_url)}" target="_blank" rel="noopener">Download</a>` : '<span class="muted">PDF coming soon</span>'}
+          </div>
         </div>
       `).join('');
     }).catch(() => {

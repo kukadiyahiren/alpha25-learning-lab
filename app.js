@@ -324,7 +324,8 @@ function isPersistentNode(node) {
   if (!(node instanceof Element)) return false;
   return node.classList.contains('bg-fun')
     || node.classList.contains('cursor-fun')
-    || node.classList.contains('page-veil');
+    || node.classList.contains('page-veil')
+    || node.classList.contains('kids-loader');
 }
 
 function markSoftPageRoots() {
@@ -381,6 +382,7 @@ async function softNavigate(url, { push = true } = {}) {
   softNavigating = true;
   document.body.classList.add('is-navigating');
   markSoftPageRoots();
+  showKidsLoader('Opening a fun page…');
 
   const pageUrl = new URL(url, location.href).href;
   const useViewTransition = typeof document.startViewTransition === 'function' && !prefersReducedMotion();
@@ -418,6 +420,7 @@ async function softNavigate(url, { push = true } = {}) {
   } catch {
     location.href = pageUrl;
   } finally {
+    hideKidsLoader();
     softNavigating = false;
     document.body.classList.remove('is-navigating');
     document.documentElement.classList.remove('soft-leaving', 'soft-entering');
@@ -470,10 +473,90 @@ function esc(value) {
   }[char]));
 }
 
-async function loadJson(path) {
-  const response = await fetch(`${API_ORIGIN}/api${path}`);
-  if (!response.ok) throw new Error('Could not load content');
-  return response.json();
+const LOADER_MESSAGES = [
+  'Getting colorful lessons ready…',
+  'Packing books and stars…',
+  'Almost there, little explorer…',
+  'Mixing learning magic…',
+  'Opening fun activities…',
+];
+
+let kidsLoaderCount = 0;
+let kidsLoaderTimer = null;
+let kidsLoaderMsgTimer = null;
+
+function ensureKidsLoader() {
+  let loader = document.querySelector('.kids-loader');
+  if (loader) return loader;
+  loader = document.createElement('div');
+  loader.className = 'kids-loader';
+  loader.setAttribute('aria-live', 'polite');
+  loader.setAttribute('aria-busy', 'true');
+  loader.innerHTML = `
+    <div class="kids-loader-card">
+      <div class="kids-loader-orbit" aria-hidden="true">
+        <span class="kids-loader-bubble">⭐</span>
+        <span class="kids-loader-bubble">📚</span>
+        <span class="kids-loader-bubble">🎨</span>
+        <span class="kids-loader-bubble">🎵</span>
+        <div class="kids-loader-core">25</div>
+      </div>
+      <p class="kids-loader-title">Alpha 25</p>
+      <p class="kids-loader-text">Loading…</p>
+      <div class="kids-loader-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+    </div>
+  `;
+  document.body.appendChild(loader);
+  return loader;
+}
+
+function setKidsLoaderMessage(message) {
+  const text = ensureKidsLoader().querySelector('.kids-loader-text');
+  if (text) text.textContent = message || LOADER_MESSAGES[0];
+}
+
+function showKidsLoader(message) {
+  const loader = ensureKidsLoader();
+  kidsLoaderCount += 1;
+  setKidsLoaderMessage(message || LOADER_MESSAGES[Math.floor(Math.random() * LOADER_MESSAGES.length)]);
+  loader.classList.add('show');
+  loader.setAttribute('aria-busy', 'true');
+
+  if (kidsLoaderMsgTimer) window.clearInterval(kidsLoaderMsgTimer);
+  kidsLoaderMsgTimer = window.setInterval(() => {
+    setKidsLoaderMessage(LOADER_MESSAGES[Math.floor(Math.random() * LOADER_MESSAGES.length)]);
+  }, 1600);
+}
+
+function hideKidsLoader(force = false) {
+  kidsLoaderCount = force ? 0 : Math.max(0, kidsLoaderCount - 1);
+  if (kidsLoaderCount > 0) return;
+  const loader = document.querySelector('.kids-loader');
+  if (!loader) return;
+  loader.classList.remove('show');
+  loader.setAttribute('aria-busy', 'false');
+  if (kidsLoaderMsgTimer) {
+    window.clearInterval(kidsLoaderMsgTimer);
+    kidsLoaderMsgTimer = null;
+  }
+  if (kidsLoaderTimer) window.clearTimeout(kidsLoaderTimer);
+  kidsLoaderTimer = window.setTimeout(() => {
+    if (kidsLoaderCount === 0 && loader.parentNode) {
+      /* keep node for reuse */
+    }
+  }, 240);
+}
+
+async function loadJson(path, options = {}) {
+  const silent = Boolean(options.silent);
+  if (!silent) showKidsLoader();
+  try {
+    const response = await fetch(`${API_ORIGIN}/api${path}`);
+    if (!response.ok) throw new Error('Could not load content');
+    return await response.json();
+  } finally {
+    if (!silent) hideKidsLoader();
+  }
 }
 
 function emptyMessage(text) {

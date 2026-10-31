@@ -110,6 +110,23 @@ export default function CatalogPage({ resource }) {
     setError('');
     setMessage('');
     try {
+      for (const field of config.fields) {
+        if (field.type !== 'file') continue;
+        const chosen = files[field.name];
+        if (field.required && !editing && !chosen) {
+          throw Object.assign(new Error(`Please choose a ${field.label.toLowerCase()}.`), { errors: {} });
+        }
+        if (chosen && field.maxMb && chosen.size > field.maxMb * 1024 * 1024) {
+          throw Object.assign(new Error(`${field.label} must be under ${field.maxMb} MB.`), { errors: {} });
+        }
+        if (chosen && field.name === 'file') {
+          const name = String(chosen.name || '').toLowerCase();
+          if (!name.endsWith('.pdf')) {
+            throw Object.assign(new Error('Book file must be a PDF (.pdf).'), { errors: {} });
+          }
+        }
+      }
+
       const data = new FormData();
       config.fields.forEach((field) => {
         if (field.type === 'file') {
@@ -133,8 +150,8 @@ export default function CatalogPage({ resource }) {
       reset();
       await load();
     } catch (err) {
-      const first = Object.values(err.errors || {})[0];
-      setError(first?.[0] || err.message);
+      const messages = Object.values(err.errors || {}).flat().filter(Boolean);
+      setError(messages.join(' ') || err.message || 'Could not save. Try a smaller PDF.');
     } finally {
       setBusy(false);
     }
@@ -241,7 +258,28 @@ export default function CatalogPage({ resource }) {
               {field.type === 'textarea' ? (
                 <textarea id={field.name} required={field.required} placeholder={field.placeholder || ''} value={form[field.name]} onChange={(e) => setForm({ ...form, [field.name]: e.target.value })} />
               ) : field.type === 'file' ? (
-                <input id={field.name} type="file" accept={field.accept} onChange={(e) => setFiles({ ...files, [field.name]: e.target.files?.[0] })} />
+                <>
+                  <input
+                    id={field.name}
+                    type="file"
+                    accept={field.accept}
+                    required={Boolean(field.required) && !editing}
+                    onChange={(e) => {
+                      const chosen = e.target.files?.[0] || null;
+                      setFiles({ ...files, [field.name]: chosen });
+                      setError('');
+                    }}
+                  />
+                  {files[field.name] && (
+                    <p className="muted" style={{ margin: '6px 0 0' }}>
+                      Selected: {files[field.name].name}
+                      {files[field.name].size ? ` (${Math.max(1, Math.round(files[field.name].size / 1024))} KB)` : ''}
+                    </p>
+                  )}
+                  {editing && field.name === 'file' && !files.file && (
+                    <p className="muted" style={{ margin: '6px 0 0' }}>Leave empty to keep the current PDF.</p>
+                  )}
+                </>
               ) : field.type === 'options' ? (
                 <div className="options-editor">
                   {(Array.isArray(form[field.name]) ? form[field.name] : emptyOptions()).map((option, index) => (
