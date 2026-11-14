@@ -6,7 +6,7 @@
   <title>eBook Reader</title>
   <link rel="icon" href="../favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="../favicon.svg">
-  <link rel="stylesheet" href="../style.css?v=20">
+  <link rel="stylesheet" href="../style.css?v=22">
 </head>
 <body class="ebook-reader-page">
   <nav id="nav"></nav>
@@ -55,7 +55,7 @@
   </main>
 
   <footer>© Alpha 25 Learning Lab</footer>
-  <script src="../app.js?v=20"></script>
+  <script src="../app.js?v=22"></script>
   <script>
     (function () {
       const params = new URLSearchParams(location.search);
@@ -136,17 +136,15 @@
       }
 
       async function loadBook(id) {
+        // Use the list endpoint first — live API still lacks /book/{id} and /ebooks/{id}.
+        const books = await loadJson('/ebooks', { silent: true });
+        const fromList = (books || []).find((item) => String(item.id) === String(id));
+        if (fromList) return fromList;
+
         try {
           return await loadJson(`/book/${id}`, { silent: true });
         } catch {
-          try {
-            return await loadJson(`/ebooks/${id}`, { silent: true });
-          } catch {
-            const books = await loadJson('/ebooks', { silent: true });
-            const book = (books || []).find((item) => String(item.id) === String(id));
-            if (!book) throw new Error('Book not found');
-            return book;
-          }
+          return await loadJson(`/ebooks/${id}`, { silent: true });
         }
       }
 
@@ -222,7 +220,8 @@
 
       function bookSize() {
         const stage = document.getElementById('stage');
-        const maxW = Math.min(980, stage.clientWidth - 24);
+        const stageWidth = stage?.clientWidth || window.innerWidth || 960;
+        const maxW = Math.min(980, Math.max(280, stageWidth - 24));
         const maxH = Math.min(720, window.innerHeight * 0.62);
         if (usePortrait) {
           const width = Math.min(460, maxW);
@@ -234,17 +233,23 @@
         return { width, height };
       }
 
+      function readerStillMounted() {
+        return Boolean(flipRoot?.isConnected && document.getElementById('stage'));
+      }
+
       function destroyFlip() {
         if (pageFlip) {
           try { pageFlip.destroy(); } catch { /* ignore */ }
           pageFlip = null;
         }
-        flipRoot.innerHTML = '';
+        if (flipRoot?.isConnected) flipRoot.innerHTML = '';
       }
 
       function createFlipBook(images, startIndex) {
+        if (!readerStillMounted() || !images?.length) return;
         destroyFlip();
         const size = bookSize();
+        // showCover:true leaves the left side blank on the first 2-up spread (cover sits alone on the right).
         pageFlip = new St.PageFlip(flipRoot, {
           width: size.width,
           height: size.height,
@@ -259,7 +264,7 @@
           startPage: startIndex,
           autoSize: true,
           maxShadowOpacity: 0.45,
-          showCover: true,
+          showCover: false,
           mobileScrollSupport: false,
           swipeDistance: 30,
           useMouseEvents: true,
@@ -279,7 +284,7 @@
       }
 
       async function rebuildFlip(keepPage) {
-        if (!pageImages.length) return;
+        if (!readerStillMounted() || !pageImages.length) return;
         const index = Math.max(0, Math.min(pageImages.length - 1, (keepPage || page) - 1));
         createFlipBook(pageImages, index);
       }
@@ -438,6 +443,35 @@
         }
       }
 
+      const onKeyDown = (event) => {
+        if (!readerStillMounted()) return;
+        if (event.target.matches('input, textarea, select')) return;
+        if (event.key === 'ArrowLeft' || event.key === 'PageUp') go(-1);
+        if (event.key === 'ArrowRight' || event.key === 'PageDown' || event.key === ' ') {
+          event.preventDefault();
+          go(1);
+        }
+      };
+
+      const onResize = () => {
+        if (!readerStillMounted() || !pageFlip || !pageImages.length) return;
+        window.clearTimeout(window.__ebookResizeTimer);
+        window.__ebookResizeTimer = window.setTimeout(() => rebuildFlip(page), 220);
+      };
+
+      // Soft navigation re-runs this script; drop the previous reader listeners first.
+      if (window.__ebookReaderCleanup) {
+        try { window.__ebookReaderCleanup(); } catch { /* ignore */ }
+      }
+      window.__ebookReaderCleanup = () => {
+        window.removeEventListener('keydown', onKeyDown);
+        window.removeEventListener('resize', onResize);
+        window.clearTimeout(window.__ebookResizeTimer);
+        destroyFlip();
+        pageImages = [];
+        pdfDoc = null;
+      };
+
       document.getElementById('prevBtn').onclick = () => go(-1);
       document.getElementById('nextBtn').onclick = () => go(1);
       mode1Btn.onclick = async () => {
@@ -453,23 +487,12 @@
       document.getElementById('listenBtn').onclick = () => listenCurrent();
       document.getElementById('stopListenBtn').onclick = () => window.speechSynthesis?.cancel();
       pageInput.addEventListener('change', () => {
-        if (!pageFlip) return;
+        if (!pageFlip || !readerStillMounted()) return;
         const target = Math.min(pageImages.length, Math.max(1, Number(pageInput.value) || 1));
         pageFlip.flip(target - 1, 'top');
       });
-      window.addEventListener('keydown', (event) => {
-        if (event.target.matches('input, textarea, select')) return;
-        if (event.key === 'ArrowLeft' || event.key === 'PageUp') go(-1);
-        if (event.key === 'ArrowRight' || event.key === 'PageDown' || event.key === ' ') {
-          event.preventDefault();
-          go(1);
-        }
-      });
-      window.addEventListener('resize', () => {
-        if (!pageFlip || !pageImages.length) return;
-        window.clearTimeout(window.__ebookResizeTimer);
-        window.__ebookResizeTimer = window.setTimeout(() => rebuildFlip(page), 220);
-      });
+      window.addEventListener('keydown', onKeyDown);
+      window.addEventListener('resize', onResize);
 
       bootReader();
     })();
