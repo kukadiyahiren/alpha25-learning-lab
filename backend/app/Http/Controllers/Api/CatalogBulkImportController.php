@@ -64,9 +64,16 @@ class CatalogBulkImportController extends Controller
 
         $file = $request->file('file');
         $extension = strtolower($file->getClientOriginalExtension());
-        $rows = in_array($extension, ['xlsx', 'xls'], true)
-            ? $this->rowsFromExcel($file->getRealPath(), $config['aliases'])
-            : $this->rowsFromCsv($file->getRealPath(), $config['aliases']);
+        $path = $file->getRealPath();
+        $raw = @file_get_contents($path) ?: '';
+        // Browser-generated .xls samples are HTML tables; PhpSpreadsheet xls reader rejects them.
+        if ($extension === 'xls' && str_contains(strtolower($raw), '<table')) {
+            $rows = $this->rowsFromHtmlTable($raw, $config['aliases']);
+        } elseif (in_array($extension, ['xlsx', 'xls'], true)) {
+            $rows = $this->rowsFromExcel($path, $config['aliases']);
+        } else {
+            $rows = $this->rowsFromCsv($path, $config['aliases']);
+        }
 
         if ($rows === []) {
             return response()->json(['message' => 'No data rows found in the file.'], 422);
@@ -141,6 +148,41 @@ class CatalogBulkImportController extends Controller
             if (! is_array($data)) {
                 continue;
             }
+            $rows[] = $this->mapRow($header, $data);
+        }
+
+        return $rows;
+    }
+
+    private function rowsFromHtmlTable(string $html, array $aliases): array
+    {
+        if (! preg_match_all('/<tr\b[^>]*>(.*?)<\/tr>/is', $html, $trMatches)) {
+            return [];
+        }
+
+        $matrix = [];
+        foreach ($trMatches[1] as $trHtml) {
+            if (! preg_match_all('/<(?:th|td)\b[^>]*>(.*?)<\/(?:th|td)>/is', $trHtml, $cellMatches)) {
+                continue;
+            }
+            $row = array_map(static function ($cell) {
+                $text = html_entity_decode(strip_tags($cell), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+                return trim(preg_replace('/\s+/u', ' ', $text) ?? '');
+            }, $cellMatches[1]);
+            if ($row === [] || ! array_filter($row, fn ($value) => $value !== '')) {
+                continue;
+            }
+            $matrix[] = $row;
+        }
+
+        if ($matrix === []) {
+            return [];
+        }
+
+        $header = $this->normalizeHeader(array_shift($matrix), $aliases);
+        $rows = [];
+        foreach ($matrix as $data) {
             $rows[] = $this->mapRow($header, $data);
         }
 

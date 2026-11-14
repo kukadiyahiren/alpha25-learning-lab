@@ -38,13 +38,23 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('admin/chapters', ChapterController::class);
     Route::apiResource('admin/questions', QuestionController::class);
 
-    // Bulk import uses /admin/bulk/... so paths never collide with /admin/{resource}/{id}
+    $bulkResources = ['audio', 'worksheets', 'gk', 'spoken-english', 'phonics'];
+
+    // Preferred paths (never collide with /admin/{resource}/{id})
     Route::get('/admin/bulk/{resource}/template.xlsx', [CatalogBulkImportController::class, 'templateXlsx'])
-        ->whereIn('resource', ['audio', 'worksheets', 'gk', 'spoken-english', 'phonics']);
+        ->whereIn('resource', $bulkResources);
     Route::get('/admin/bulk/{resource}/template.csv', [CatalogBulkImportController::class, 'templateCsv'])
-        ->whereIn('resource', ['audio', 'worksheets', 'gk', 'spoken-english', 'phonics']);
+        ->whereIn('resource', $bulkResources);
     Route::post('/admin/bulk/{resource}/import', [CatalogBulkImportController::class, 'import'])
-        ->whereIn('resource', ['audio', 'worksheets', 'gk', 'spoken-english', 'phonics']);
+        ->whereIn('resource', $bulkResources);
+
+    // Legacy paths — safe once {id} is numeric-only below
+    Route::get('/admin/{resource}/import-template.xlsx', [CatalogBulkImportController::class, 'templateXlsx'])
+        ->whereIn('resource', $bulkResources);
+    Route::get('/admin/{resource}/import-template.csv', [CatalogBulkImportController::class, 'templateCsv'])
+        ->whereIn('resource', $bulkResources);
+    Route::post('/admin/{resource}/import', [CatalogBulkImportController::class, 'import'])
+        ->whereIn('resource', $bulkResources);
 
     Route::get('/admin/upload-limits', function () {
         return [

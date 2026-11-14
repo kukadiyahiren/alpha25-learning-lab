@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../api';
+import { importBulkRows } from '../bulkImport';
 import { RESOURCES } from '../catalog';
 import { downloadCsvSample, downloadExcelSample } from '../sampleDownload';
 
@@ -235,10 +236,17 @@ export default function CatalogPage({ resource }) {
     setBulkError('');
     setBulkMessage('');
     try {
-      const data = new FormData();
-      data.append('file', bulkFile);
-      const result = await api(`/admin/bulk/${resource}/import`, { method: 'POST', formData: data });
-      const extra = result.errors?.length ? ` ${result.errors.join(' ')}` : '';
+      // Prefer dedicated bulk API when deployed; otherwise import row-by-row via create.
+      let result;
+      try {
+        const data = new FormData();
+        data.append('file', bulkFile);
+        result = await api(`/admin/bulk/${resource}/import`, { method: 'POST', formData: data });
+      } catch (err) {
+        if (err.status !== 404) throw err;
+        result = await importBulkRows(resource, bulkFile);
+      }
+      const extra = result.errors?.length ? ` ${result.errors.slice(0, 5).join(' ')}` : '';
       setBulkMessage(`${result.message}${extra}`);
       setBulkFile(null);
       event.target.reset();
