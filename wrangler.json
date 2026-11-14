@@ -1,0 +1,17 @@
+{
+  "name": "alpha25-learning-lab",
+  "compatibility_date": "2026-10-24",
+  "main": "_worker.js",
+  "assets": {
+    "directory": ".",
+    "not_found_handling": "single-page-application",
+    "binding": "ASSETS",
+    "exclude": [
+      "admin/**",
+      "backend/**",
+      ".git/**",
+      ".cursor/**",
+      "node_modules/**"
+    ]
+  }
+}

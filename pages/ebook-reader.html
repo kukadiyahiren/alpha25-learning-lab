@@ -6,7 +6,7 @@
   <title>eBook Reader</title>
   <link rel="icon" href="../favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="../favicon.svg">
-  <link rel="stylesheet" href="../style.css?v=18">
+  <link rel="stylesheet" href="../style.css?v=19">
 </head>
 <body class="ebook-reader-page">
   <nav id="nav"></nav>
@@ -55,7 +55,7 @@
   </main>
 
   <footer>© Alpha 25 Learning Lab</footer>
-  <script src="../app.js?v=18"></script>
+  <script src="../app.js?v=19"></script>
   <script>
     (function () {
       const params = new URLSearchParams(location.search);
@@ -85,6 +85,10 @@
 
       function candidatePdfUrls(book) {
         const urls = [];
+        // Same-origin worker proxy — bypasses storage CORS blocks on workers.dev
+        if (book?.file_url) {
+          urls.push(`${location.origin}/pdf-proxy?url=${encodeURIComponent(book.file_url)}`);
+        }
         if (book?.id) {
           urls.push(`${API_ORIGIN}/api/book/${book.id}/pdf`);
           urls.push(`${API_ORIGIN}/api/ebooks/${book.id}/file`);
@@ -92,7 +96,16 @@
         if (book?.file_path) {
           urls.push(`${API_ORIGIN}/api/public-file/${String(book.file_path).split('/').map(encodeURIComponent).join('/')}`);
         }
+        if (book?.file_url) {
+          urls.push(book.file_url);
+        }
         return urls;
+      }
+
+      function looksLikePdf(buffer) {
+        if (!buffer || buffer.byteLength < 5) return false;
+        const bytes = new Uint8Array(buffer.slice(0, 5));
+        return String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3], bytes[4]) === '%PDF-';
       }
 
       function loadScript(src) {
@@ -140,11 +153,13 @@
       async function fetchPdfBuffer(book) {
         for (const url of candidatePdfUrls(book)) {
           try {
-            const response = await fetch(url, { headers: { Accept: 'application/pdf' } });
+            const response = await fetch(url, { headers: { Accept: 'application/pdf,*/*' } });
             if (!response.ok) continue;
             const type = response.headers.get('content-type') || '';
-            if (type.includes('application/json')) continue;
-            return await response.arrayBuffer();
+            if (type.includes('application/json') || type.includes('text/html')) continue;
+            const buffer = await response.arrayBuffer();
+            if (!looksLikePdf(buffer)) continue;
+            return buffer;
           } catch (error) {
             console.warn('PDF candidate failed', url, error);
           }
@@ -310,13 +325,19 @@
       }
 
       function showEmbedFallback(fileUrl) {
+        destroyFlip();
         flipRoot.hidden = true;
+        document.querySelector('.ebook-book-wrap')?.setAttribute('hidden', '');
         document.getElementById('ebookToolbar').querySelectorAll('.tool, .tool-label, #listenBtn, #listenLang, #stopListenBtn').forEach((el) => {
           el.style.display = 'none';
         });
         embedEl.hidden = false;
-        embedEl.src = fileUrl;
-        hintEl.textContent = 'Simple reader mode. Redeploy API PDF proxy for full page-flip + Listen.';
+        // Prefer Google viewer when the host blocks iframe PDF rendering / CORS.
+        embedEl.src = `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(fileUrl)}`;
+        downloadBtn.hidden = false;
+        downloadBtn.href = fileUrl;
+        hintEl.innerHTML = 'Showing a simple preview. Use <strong>Download PDF</strong> if the preview stays blank. Full page-flip returns after the PDF proxy is live.';
+        metaEl.textContent = 'Preview mode — page-flip needs the PDF proxy';
       }
 
       async function bootReader() {
@@ -348,17 +369,27 @@
           }
 
           pdfDoc = await pdfjsLib.getDocument({ data: buffer }).promise;
+          pageTotal.textContent = `/ ${pdfDoc.numPages}`;
           pageImages = await buildPageImages();
+          if (!pageImages.length || !pageImages[0]) {
+            showEmbedFallback(book.file_url);
+            return;
+          }
           const startIndex = Math.min(Math.max(0, startPage - 1), pageImages.length - 1);
           createFlipBook(pageImages, startIndex);
           hintEl.innerHTML = 'Drag a page corner, swipe, or use Prev/Next — pages turn with a book-flip effect.';
           if (wantListen) listenCurrent();
         } catch (error) {
-          titleEl.textContent = 'Could not open book';
-          metaEl.textContent = error?.message === 'No PDF uploaded for this book'
-            ? 'This eBook has no PDF yet. Upload a PDF from Admin → eBooks.'
-            : 'Could not load the PDF. Try Download PDF, or redeploy API and retry Read.';
           console.error(error);
+          if (downloadBtn.href && downloadBtn.href !== '#') {
+            showEmbedFallback(downloadBtn.href);
+            titleEl.textContent = titleEl.textContent === 'Could not open book' ? 'eBook' : titleEl.textContent;
+          } else {
+            titleEl.textContent = 'Could not open book';
+            metaEl.textContent = error?.message === 'No PDF uploaded for this book'
+              ? 'This eBook has no PDF yet. Upload a PDF from Admin → eBooks.'
+              : 'Could not load the PDF. Try Download PDF, or redeploy API and retry Read.';
+          }
         } finally {
           hideKidsLoader(true);
         }

@@ -23,5 +23,5 @@ RUN composer dump-autoload --optimize \
 ENV PORT=10000
 EXPOSE 10000
 
-# Force PHP flags at runtime too (Render sometimes ignores conf.d alone)
-CMD ["sh", "-c", "php -d upload_max_filesize=64M -d post_max_size=72M -d max_execution_time=180 -d memory_limit=256M artisan serve --host=0.0.0.0 --port=${PORT}"]
+# Clear stale route/config cache, then serve with large upload limits
+CMD ["sh", "-c", "php artisan route:clear && php artisan config:clear && php -d upload_max_filesize=64M -d post_max_size=72M -d max_execution_time=180 -d memory_limit=256M artisan serve --host=0.0.0.0 --port=${PORT}"]
