@@ -338,7 +338,23 @@ function markSoftPageRoots() {
   });
 }
 
+function runSoftPageCleanup() {
+  // Page scripts (e.g. ebook reader) register window listeners; soft nav must drop them
+  // before the old DOM is removed or resize/keydown handlers crash on missing nodes.
+  if (typeof window.__ebookReaderCleanup === 'function') {
+    try { window.__ebookReaderCleanup(); } catch { /* ignore */ }
+    window.__ebookReaderCleanup = null;
+  }
+  if (typeof window.__pageCleanup === 'function') {
+    try { window.__pageCleanup(); } catch { /* ignore */ }
+    window.__pageCleanup = null;
+  }
+  window.clearTimeout(window.__ebookResizeTimer);
+}
+
 function swapPageBody(doc) {
+  runSoftPageCleanup();
+
   const keep = [...document.body.children].filter((child) => isPersistentNode(child));
   const nextNodes = [];
   const nextScripts = [];
