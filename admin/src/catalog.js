@@ -5,6 +5,11 @@ export const RESOURCES = {
     bulk: {
       columns: ['language', 'title', 'body', 'sort_order'],
       sample: 'audio-stories-sample.csv',
+      samples: [
+        ['Gujarati', 'નાની ચકલીની હિંમત', 'એક નાની ચકલી વૃક્ષ પર રહેતી હતી. તે દરરોજ વહેલી સવારે ઊડતી હતી.', 1],
+        ['Hindi', 'मेहनती खरगोश', 'यह हिंदी कहानी का नमूना है. मेहनत से हर काम पूरा होता है.', 2],
+        ['English', 'The Helpful Little Star', 'A little star helped the night sky shine. Kindness made everyone brighter.', 3],
+      ],
       note: 'Audio files are not imported from the sheet; add those later with Edit if needed.',
     },
     fields: [
@@ -34,6 +39,11 @@ export const RESOURCES = {
     bulk: {
       columns: ['grade', 'title', 'description', 'sort_order'],
       sample: 'worksheets-sample.csv',
+      samples: [
+        ['1', 'ધોરણ 1 practice', 'ગુજરાતી • ગણિત • English', 1],
+        ['2', 'ધોરણ 2 practice', 'ગુજરાતી • ગણિત • English', 2],
+        ['3', 'ધોરણ 3 practice', 'ગુજરાતી • ગણિત • English • GK', 3],
+      ],
       note: 'PDF files are not imported from the sheet; attach them later with Edit if needed.',
     },
     fields: [
@@ -51,6 +61,11 @@ export const RESOURCES = {
     bulk: {
       columns: ['category', 'question', 'answer', 'option_1', 'option_2', 'option_3', 'option_4', 'sort_order'],
       sample: 'gk-questions-sample.csv',
+      samples: [
+        ['Gujarat', 'ગુજરાતની રાજધાની કઈ છે?', 'ગાંધીનગર', 'અમદાવાદ', 'ગાંધીનગર', 'સુરત', 'રાજકોટ', 1],
+        ['India', 'ભારતની રાજધાની કઈ છે?', 'નવી દિલ્હી', 'મુંબઈ', 'નવી દિલ્હી', 'કોલકાતા', 'ચેન્નઈ', 2],
+        ['World', 'પૃથ્વીનો ઉપગ્રહ કયો છે?', 'ચંદ્ર', 'સૂર્ય', 'મંગળ', 'ચંદ્ર', 'શુક્ર', 3],
+      ],
       note: 'One question per row. Fill option_1…option_4 for multiple choice. Answer must match the correct option.',
     },
     fields: [
@@ -68,6 +83,11 @@ export const RESOURCES = {
     bulk: {
       columns: ['day_label', 'topic', 'script', 'sort_order'],
       sample: 'spoken-english-sample.csv',
+      samples: [
+        ['Day 1', 'Greetings', 'Good morning. How are you? I am fine, thank you.', 1],
+        ['Day 2', 'Introduction', 'My name is Rajnish. I am happy to meet you.', 2],
+        ['Day 3', 'Classroom', 'Please open your book. Listen carefully. Repeat after me.', 3],
+      ],
       note: 'Audio files are not imported from the sheet; add those later with Edit if needed.',
     },
     fields: [
@@ -85,6 +105,11 @@ export const RESOURCES = {
     bulk: {
       columns: ['day_label', 'letter', 'word', 'sort_order'],
       sample: 'phonics-sample.csv',
+      samples: [
+        ['Day 1', 'A a', 'apple', 1],
+        ['Day 2', 'B b', 'ball', 2],
+        ['Day 3', 'C c', 'cat', 3],
+      ],
       note: 'Audio files are not imported from the sheet; add those later with Edit if needed.',
     },
     fields: [

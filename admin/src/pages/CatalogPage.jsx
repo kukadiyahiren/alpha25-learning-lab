@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { api, downloadFile } from '../api';
+import { api } from '../api';
 import { RESOURCES } from '../catalog';
+import { downloadCsvSample, downloadExcelSample } from '../sampleDownload';
 
 const emptyOptions = () => ['', '', '', ''];
 
@@ -207,18 +208,20 @@ export default function CatalogPage({ resource }) {
     }
   }
 
-  async function downloadSample(type) {
+  function downloadSample(type) {
     if (!config.bulk) return;
     setBulkError('');
     try {
       const base = config.bulk.sample.replace(/\.csv$/, '');
+      const columns = config.bulk.columns;
+      const rows = config.bulk.samples || [];
       if (type === 'xlsx') {
-        await downloadFile(`/admin/${resource}/import-template.xlsx`, `${base}.xlsx`);
+        downloadExcelSample(`${base}.xls`, columns, rows, config.title);
       } else {
-        await downloadFile(`/admin/${resource}/import-template.csv`, `${base}.csv`);
+        downloadCsvSample(`${base}.csv`, columns, rows);
       }
     } catch (err) {
-      setBulkError(err.message);
+      setBulkError(err.message || 'Could not download the sample file.');
     }
   }
 
@@ -234,7 +237,7 @@ export default function CatalogPage({ resource }) {
     try {
       const data = new FormData();
       data.append('file', bulkFile);
-      const result = await api(`/admin/${resource}/import`, { method: 'POST', formData: data });
+      const result = await api(`/admin/bulk/${resource}/import`, { method: 'POST', formData: data });
       const extra = result.errors?.length ? ` ${result.errors.join(' ')}` : '';
       setBulkMessage(`${result.message}${extra}`);
       setBulkFile(null);
@@ -266,7 +269,6 @@ export default function CatalogPage({ resource }) {
           <div className="form-actions">
             <button className="btn secondary" type="button" onClick={() => downloadSample('xlsx')}>Download Excel sample</button>
             <button className="btn secondary" type="button" onClick={() => downloadSample('csv')}>Download CSV sample</button>
-            <a className="btn secondary" href={`/${config.bulk.sample}`} download>Local CSV sample</a>
           </div>
           <form onSubmit={importBulk} style={{ marginTop: 12 }}>
             {bulkError && <div className="error">{bulkError}</div>}
