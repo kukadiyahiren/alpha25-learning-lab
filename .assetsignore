@@ -1,0 +1,21 @@
+# Worker source is deployed via wrangler "main", not as a public asset
+worker.js
+_worker.js
+wrangler.json
+wrangler.toml
+
+# Keep API/admin/source out of the static asset upload
+admin/
+backend/
+.git/
+.cursor/
+.claude/
+node_modules/
+vendor/
+composer.lock
+composer.json
+package-lock.json
+.env
+.env.*
+*.md
+*.log
