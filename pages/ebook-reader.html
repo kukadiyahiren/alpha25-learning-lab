@@ -6,7 +6,7 @@
   <title>eBook Reader</title>
   <link rel="icon" href="../favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="../favicon.svg">
-  <link rel="stylesheet" href="../style.css?v=19">
+  <link rel="stylesheet" href="../style.css?v=20">
 </head>
 <body class="ebook-reader-page">
   <nav id="nav"></nav>
@@ -55,7 +55,7 @@
   </main>
 
   <footer>© Alpha 25 Learning Lab</footer>
-  <script src="../app.js?v=19"></script>
+  <script src="../app.js?v=20"></script>
   <script>
     (function () {
       const params = new URLSearchParams(location.search);
@@ -324,20 +324,59 @@
         }
       }
 
-      function showEmbedFallback(fileUrl) {
+      function hideFlipChrome() {
         destroyFlip();
         flipRoot.hidden = true;
         document.querySelector('.ebook-book-wrap')?.setAttribute('hidden', '');
         document.getElementById('ebookToolbar').querySelectorAll('.tool, .tool-label, #listenBtn, #listenLang, #stopListenBtn').forEach((el) => {
           el.style.display = 'none';
         });
+      }
+
+      function showMissingPdf(book) {
+        hideFlipChrome();
+        embedEl.hidden = true;
+        embedEl.removeAttribute('src');
+        downloadBtn.hidden = true;
+        metaEl.textContent = 'PDF file is missing on the server';
+        hintEl.innerHTML = 'This book’s PDF was lost after an API restart (temporary disk). Open <strong>Admin → eBooks</strong>, edit <em>'
+          + (book?.title || 'this book')
+          + '</em>, and upload the PDF again.';
+      }
+
+      function showEmbedFallback(fileUrl) {
+        hideFlipChrome();
         embedEl.hidden = false;
-        // Prefer Google viewer when the host blocks iframe PDF rendering / CORS.
         embedEl.src = `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(fileUrl)}`;
         downloadBtn.hidden = false;
         downloadBtn.href = fileUrl;
-        hintEl.innerHTML = 'Showing a simple preview. Use <strong>Download PDF</strong> if the preview stays blank. Full page-flip returns after the PDF proxy is live.';
-        metaEl.textContent = 'Preview mode — page-flip needs the PDF proxy';
+        hintEl.innerHTML = 'Showing a simple preview. Use <strong>Download PDF</strong> if the preview stays blank.';
+        metaEl.textContent = 'Preview mode';
+      }
+
+      async function pdfUrlIsReachable(fileUrl) {
+        if (!fileUrl) return false;
+        try {
+          const response = await fetch(`${location.origin}/pdf-proxy?url=${encodeURIComponent(fileUrl)}`, {
+            method: 'GET',
+            headers: { Accept: 'application/pdf,*/*' },
+          });
+          if (response.ok) {
+            const buffer = await response.arrayBuffer();
+            return looksLikePdf(buffer);
+          }
+        } catch { /* proxy may be undeployed */ }
+        try {
+          const response = await fetch(fileUrl, { method: 'GET', mode: 'cors', headers: { Accept: 'application/pdf,*/*' } });
+          if (!response.ok) return false;
+          const type = response.headers.get('content-type') || '';
+          if (type.includes('text/html') || type.includes('application/json')) return false;
+          const buffer = await response.arrayBuffer();
+          return looksLikePdf(buffer);
+        } catch {
+          // Opaque / CORS failure — URL might still exist for <a download>, unknown for embed
+          return null;
+        }
       }
 
       async function bootReader() {
@@ -355,41 +394,45 @@
           metaEl.textContent = 'Flip pages like a real book • Listen aloud';
           document.title = `${book.title || 'eBook'} · Alpha 25`;
 
-          if (book.file_url) {
-            downloadBtn.hidden = false;
-            downloadBtn.href = book.file_url;
-          } else {
+          if (!book.file_url && !book.file_path) {
             throw new Error('No PDF uploaded for this book');
           }
 
-          const buffer = await fetchPdfBuffer(book);
-          if (!buffer) {
-            showEmbedFallback(book.file_url);
-            return;
+          if (book.file_url) {
+            downloadBtn.hidden = false;
+            downloadBtn.href = book.file_url;
           }
 
-          pdfDoc = await pdfjsLib.getDocument({ data: buffer }).promise;
-          pageTotal.textContent = `/ ${pdfDoc.numPages}`;
-          pageImages = await buildPageImages();
-          if (!pageImages.length || !pageImages[0]) {
+          const buffer = await fetchPdfBuffer(book);
+          if (buffer) {
+            pdfDoc = await pdfjsLib.getDocument({ data: buffer }).promise;
+            pageTotal.textContent = `/ ${pdfDoc.numPages}`;
+            pageImages = await buildPageImages();
+            if (pageImages.length && pageImages[0]) {
+              const startIndex = Math.min(Math.max(0, startPage - 1), pageImages.length - 1);
+              createFlipBook(pageImages, startIndex);
+              hintEl.innerHTML = 'Drag a page corner, swipe, or use Prev/Next — pages turn with a book-flip effect.';
+              if (wantListen) listenCurrent();
+              return;
+            }
+          }
+
+          // Don't iframe storage URLs that 404 (Symfony "Oops!" page). Only embed when PDF bytes exist.
+          const reachable = book.file_url ? await pdfUrlIsReachable(book.file_url) : false;
+          if (reachable === true) {
             showEmbedFallback(book.file_url);
             return;
           }
-          const startIndex = Math.min(Math.max(0, startPage - 1), pageImages.length - 1);
-          createFlipBook(pageImages, startIndex);
-          hintEl.innerHTML = 'Drag a page corner, swipe, or use Prev/Next — pages turn with a book-flip effect.';
-          if (wantListen) listenCurrent();
+          showMissingPdf(book);
         } catch (error) {
           console.error(error);
-          if (downloadBtn.href && downloadBtn.href !== '#') {
-            showEmbedFallback(downloadBtn.href);
-            titleEl.textContent = titleEl.textContent === 'Could not open book' ? 'eBook' : titleEl.textContent;
-          } else {
-            titleEl.textContent = 'Could not open book';
-            metaEl.textContent = error?.message === 'No PDF uploaded for this book'
-              ? 'This eBook has no PDF yet. Upload a PDF from Admin → eBooks.'
-              : 'Could not load the PDF. Try Download PDF, or redeploy API and retry Read.';
-          }
+          titleEl.textContent = 'Could not open book';
+          metaEl.textContent = error?.message === 'No PDF uploaded for this book'
+            ? 'This eBook has no PDF yet. Upload a PDF from Admin → eBooks.'
+            : 'Could not load the PDF. Re-upload it from Admin → eBooks, then try again.';
+          hideFlipChrome();
+          embedEl.hidden = true;
+          hintEl.textContent = 'Tip: on Render, uploaded files disappear after redeploy unless you use a persistent disk or S3/R2.';
         } finally {
           hideKidsLoader(true);
         }
