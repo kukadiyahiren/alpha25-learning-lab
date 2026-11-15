@@ -25,6 +25,13 @@ Route::get('/ebooks/{id}', [PublicContentController::class, 'ebook'])->where('id
 Route::get('/ebooks/{id}/file', [PublicContentController::class, 'ebookFile'])->where('id', '[0-9]+');
 Route::get('/public-file/{path}', [PublicContentController::class, 'publicFile'])->where('path', '.*');
 Route::get('/worksheets', [PublicContentController::class, 'worksheets']);
+Route::get('/health', function () {
+    return [
+        'ok' => true,
+        'worksheet2' => true,
+        'commit' => env('RENDER_GIT_COMMIT') ?: env('GIT_COMMIT') ?: 'local',
+    ];
+});
 Route::get('/worksheet2/meta', [Worksheet2Controller::class, 'meta']);
 Route::get('/worksheet2', [Worksheet2Controller::class, 'index']);
 Route::get('/worksheet2/{id}', [Worksheet2Controller::class, 'show'])->whereNumber('id');
@@ -87,8 +94,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/admin/{resource}/upload-chunk', [UploadChunkController::class, 'store'])
         ->whereIn('resource', ['audio', 'ebooks', 'worksheets', 'spoken-english', 'phonics']);
 
-    Route::get('/admin/{resource}', [CatalogController::class, 'index']);
-    Route::post('/admin/{resource}', [CatalogController::class, 'store']);
-    Route::post('/admin/{resource}/{id}', [CatalogController::class, 'update'])->whereNumber('id');
-    Route::delete('/admin/{resource}/{id}', [CatalogController::class, 'destroy'])->whereNumber('id');
+    // Only real catalog sections — never swallow /admin/worksheet2 as "Unknown section"
+    $catalogResources = ['audio', 'ebooks', 'worksheets', 'gk', 'spoken-english', 'phonics'];
+    Route::get('/admin/{resource}', [CatalogController::class, 'index'])
+        ->whereIn('resource', $catalogResources);
+    Route::post('/admin/{resource}', [CatalogController::class, 'store'])
+        ->whereIn('resource', $catalogResources);
+    Route::post('/admin/{resource}/{id}', [CatalogController::class, 'update'])
+        ->whereNumber('id')
+        ->whereIn('resource', $catalogResources);
+    Route::delete('/admin/{resource}/{id}', [CatalogController::class, 'destroy'])
+        ->whereNumber('id')
+        ->whereIn('resource', $catalogResources);
 });

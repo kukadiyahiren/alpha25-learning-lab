@@ -149,7 +149,13 @@ export default function Worksheet2Page() {
   }
 
   useEffect(() => {
-    load().catch((err) => setError(`${err.message} (API: ${API_ORIGIN})`));
+    load().catch((err) => {
+      const msg = String(err.message || '');
+      const hint = /could not be found|Unknown section|404/i.test(msg)
+        ? ' Production API is missing Worksheet2 routes — open Render → alpha25-learning-lab-1 → Manual Deploy → Clear build cache & deploy.'
+        : '';
+      setError(`${msg} (API: ${API_ORIGIN})${hint}`);
+    });
   }, []);
 
   useEffect(() => {
