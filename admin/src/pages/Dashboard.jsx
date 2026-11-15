@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api } from '../api';
+import { api, SITE_ORIGIN } from '../api';
 
 const cards = [
   ['grades', 'Classes', '/classes'],
@@ -23,9 +23,20 @@ export default function Dashboard() {
 
   return (
     <div>
-      <div className="top">
-        <h1>Dashboard</h1>
-        <p>What you add here is what students see on the learning site.</p>
+      <div className="top ws-top">
+        <div>
+          <h1>Dashboard</h1>
+          <p>What you add here is what students see on the learning site.</p>
+        </div>
+        <a
+          className="btn"
+          href={SITE_ORIGIN}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={SITE_ORIGIN}
+        >
+          Open frontend ↗
+        </a>
       </div>
       {error && <div className="error">{error}</div>}
       <div className="stats">

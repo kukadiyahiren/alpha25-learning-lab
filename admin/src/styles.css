@@ -116,6 +116,11 @@ input:focus, textarea:focus, select:focus {
   font-weight: 650;
 }
 .side a.active, .side a:hover { background: rgba(255,255,255,0.12); color: #fff; }
+.side a.side-external {
+  margin-top: 10px;
+  border: 1px dashed rgba(255,255,255,0.28);
+  color: #9fe8df;
+}
 .side .logout { margin-top: auto; }
 
 .main {

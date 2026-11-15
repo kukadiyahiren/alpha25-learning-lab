@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { api, setToken } from './api';
+import { api, setToken, SITE_ORIGIN } from './api';
 
 const links = [
   ['/', 'Dashboard'],
@@ -56,6 +56,15 @@ export default function Layout({ children }) {
           {links.map(([to, label]) => (
             <NavLink key={to} to={to} end={to === '/'}>{label}</NavLink>
           ))}
+          <a
+            className="side-external"
+            href={SITE_ORIGIN}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={SITE_ORIGIN}
+          >
+            Frontend site ↗
+          </a>
         </nav>
         <button className="btn secondary logout" type="button" onClick={logout}>Log out</button>
       </aside>
