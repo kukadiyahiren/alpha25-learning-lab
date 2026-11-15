@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { api } from '../api';
+import { api, API_ORIGIN } from '../api';
 import { downloadCsvSample, downloadExcelSample } from '../sampleDownload';
 
 const BULK_COLUMNS = [
@@ -149,12 +149,12 @@ export default function Worksheet2Page() {
   }
 
   useEffect(() => {
-    load().catch((err) => setError(err.message));
+    load().catch((err) => setError(`${err.message} (API: ${API_ORIGIN})`));
   }, []);
 
   useEffect(() => {
     if (tab !== 'attempts') return;
-    loadAttempts().catch((err) => setError(err.message));
+    loadAttempts().catch((err) => setError(`${err.message} (API: ${API_ORIGIN})`));
   }, [tab]);
 
   function closeEditor() {
@@ -365,6 +365,7 @@ export default function Worksheet2Page() {
         <div>
           <h1>Worksheets</h1>
           <p>Satra practice papers · answers saved on submit</p>
+          <p className="muted" style={{ fontSize: '0.8rem', marginTop: 4 }}>API: {API_ORIGIN}</p>
         </div>
         <div className="ws-toolbar">
           <button type="button" className={`btn ${tab === 'sheets' ? '' : 'secondary'}`} onClick={() => setTab('sheets')}>
