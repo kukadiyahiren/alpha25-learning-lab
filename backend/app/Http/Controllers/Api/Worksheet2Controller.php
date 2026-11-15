@@ -74,6 +74,7 @@ class Worksheet2Controller extends Controller
         $sheet = Worksheet2Sheet::query()->with('questions')->findOrFail($id);
         $validated = $request->validate([
             'student_name' => ['required', 'string', 'max:120'],
+            'device_id' => ['required', 'string', 'max:64'],
             'grade' => ['nullable', 'string', 'max:20'],
             'answers' => ['required', 'array', 'min:1'],
             'answers.*.question_id' => ['required', 'integer'],
@@ -81,6 +82,31 @@ class Worksheet2Controller extends Controller
             'answers.*.answer_text' => ['nullable', 'string', 'max:500'],
             'answers.*.answer_meta' => ['nullable', 'array'],
         ]);
+
+        $studentName = trim($validated['student_name']);
+        $studentKey = mb_strtolower(preg_replace('/\s+/u', ' ', $studentName) ?? $studentName);
+        $deviceId = trim($validated['device_id']);
+
+        $existing = Worksheet2Attempt::query()
+            ->where('sheet_id', $sheet->id)
+            ->where(function ($query) use ($deviceId, $studentKey) {
+                $query->where('device_id', $deviceId)
+                    ->orWhere('student_key', $studentKey);
+            })
+            ->latest('id')
+            ->first();
+
+        if ($existing) {
+            return response()->json([
+                'message' => 'આ worksheet તમે પહેલેથી submit કરી ચૂક્યા છો. ફક્ત એક વાર જ કરી શકાય.',
+                'already_submitted' => true,
+                'attempt_id' => $existing->id,
+                'student_name' => $existing->student_name,
+                'score' => $existing->score,
+                'total' => $existing->total,
+                'percent' => $existing->percent,
+            ], 409);
+        }
 
         $byId = $sheet->questions->keyBy('id');
         $answerRows = [];
@@ -112,10 +138,12 @@ class Worksheet2Controller extends Controller
         $total = $sheet->questions->count();
         $percent = $total > 0 ? (int) round(($score / $total) * 100) : 0;
 
-        $attempt = DB::transaction(function () use ($sheet, $validated, $score, $total, $percent, $answerRows) {
+        $attempt = DB::transaction(function () use ($sheet, $validated, $studentName, $studentKey, $deviceId, $score, $total, $percent, $answerRows) {
             $attempt = Worksheet2Attempt::query()->create([
                 'sheet_id' => $sheet->id,
-                'student_name' => trim($validated['student_name']),
+                'student_name' => $studentName,
+                'device_id' => $deviceId,
+                'student_key' => $studentKey,
                 'grade' => $validated['grade'] ?? $sheet->grade,
                 'score' => $score,
                 'total' => $total,

@@ -7,7 +7,7 @@
   <link rel="icon" href="../favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="../favicon.svg">
   <link rel="stylesheet" href="../style.css?v=24">
-  <link rel="stylesheet" href="../worksheet2.css?v=3">
+  <link rel="stylesheet" href="../worksheet2.css?v=4">
 </head>
 <body class="worksheet2-page">
   <header class="hero">
@@ -97,8 +97,7 @@
         <h2>તમારું Result</h2>
         <div id="resultMarks" class="result-marks"></div>
         <p id="resultMessage">ખૂબ સરસ!</p>
-        <button type="button" id="retryWorksheet" class="retry-button">🔄 ફરી પ્રયાસ કરો</button>
-        <button type="button" id="anotherWorksheet" class="retry-button" style="margin-left:8px;background:#64748b">📚 બીજી Worksheet</button>
+        <button type="button" id="anotherWorksheet" class="retry-button">📚 બીજી Worksheet</button>
       </div>
     </section>
 
@@ -121,12 +120,76 @@
   <script>
     (function () {
       const HISTORY_KEY = 'alpha25_worksheet2_history';
+      const NAME_KEY = 'alpha25_student_name';
+      const DEVICE_KEY = 'alpha25_device_id';
+      const SUBMITTED_KEY = 'alpha25_worksheet2_submitted';
       const STANDARD_ICONS = ['👦', '👧', '🧒', '👨‍🎓', '🎓', '📘', '📗', '📙'];
 
       let meta = { standards: [], subjects: [] };
       let selectedGrade = null;
       let selectedSubject = null;
       let currentSheet = null;
+      let alreadySubmitted = false;
+
+      function getDeviceId() {
+        let id = localStorage.getItem(DEVICE_KEY);
+        if (!id) {
+          id = (crypto.randomUUID && crypto.randomUUID())
+            || (`dev-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
+          localStorage.setItem(DEVICE_KEY, id);
+        }
+        return id;
+      }
+
+      function savedStudentName() {
+        return localStorage.getItem(NAME_KEY) || '';
+      }
+
+      function rememberStudentName(name) {
+        localStorage.setItem(NAME_KEY, name);
+      }
+
+      function readSubmittedMap() {
+        try { return JSON.parse(localStorage.getItem(SUBMITTED_KEY) || '{}'); }
+        catch { return {}; }
+      }
+
+      function markSheetSubmitted(sheetId, payload) {
+        const map = readSubmittedMap();
+        map[String(sheetId)] = {
+          name: payload.name,
+          score: payload.score,
+          total: payload.total,
+          percent: payload.percent,
+          at: Date.now(),
+        };
+        localStorage.setItem(SUBMITTED_KEY, JSON.stringify(map));
+      }
+
+      function getLocalSubmission(sheetId) {
+        return readSubmittedMap()[String(sheetId)] || null;
+      }
+
+      function setQuizLocked(locked, message) {
+        alreadySubmitted = locked;
+        const submitBtn = document.getElementById('submitWorksheet');
+        quizForm.querySelectorAll('input, select, textarea').forEach((el) => {
+          if (el.id === 'studentName' || el.id === 'studentStandard') return;
+          el.disabled = locked;
+        });
+        studentName.readOnly = locked;
+        submitBtn.disabled = locked;
+        submitBtn.textContent = locked ? '✅ Already submitted' : '✅ Submit Worksheet';
+        let note = document.getElementById('submitOnceNote');
+        if (!note) {
+          note = document.createElement('p');
+          note.id = 'submitOnceNote';
+          note.className = 'submit-once-note';
+          submitBtn.parentElement.prepend(note);
+        }
+        note.textContent = message || '';
+        note.classList.toggle('hidden', !locked);
+      }
 
       const standardList = document.getElementById('standardList');
       const subjectSection = document.getElementById('subjectSection');
@@ -376,7 +439,7 @@
           worksheetDescription.textContent = currentSheet.description || 'Online Practice Worksheet';
           worksheetMarks.textContent = `${currentSheet.marks || questions.length} ગુણ`;
           worksheetQuestions.textContent = `${questions.length} પ્રશ્નો`;
-          studentName.value = '';
+          studentName.value = savedStudentName();
           studentStandard.value = selectedGrade || currentSheet.grade || '';
 
           const groups = groupBySection(questions);
@@ -389,7 +452,17 @@
             </section>
           `).join('');
 
-          resultArea.classList.add('hidden');
+          const localDone = getLocalSubmission(currentSheet.id);
+          if (localDone) {
+            setQuizLocked(true, 'આ device પર આ worksheet પહેલેથી submit થઈ ચૂકી છે (એક વાર જ).');
+            resultMarks.textContent = `${localDone.score} / ${localDone.total}`;
+            resultMessage.textContent = `${localDone.name}: પહેલાંનું result (${localDone.percent || 0}%)`;
+            resultArea.classList.remove('hidden');
+          } else {
+            setQuizLocked(false, '');
+            resultArea.classList.add('hidden');
+          }
+
           worksheetArea.classList.remove('hidden');
           worksheetArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
         } catch (error) {
@@ -417,11 +490,15 @@
 
       quizForm.addEventListener('submit', async (event) => {
         event.preventDefault();
-        if (!currentSheet) return;
+        if (!currentSheet || alreadySubmitted) return;
         const name = studentName.value.trim();
         if (!name) {
           studentName.focus();
           alert('વિદ્યાર્થીનું નામ લખો');
+          return;
+        }
+        if (getLocalSubmission(currentSheet.id)) {
+          setQuizLocked(true, 'આ worksheet પહેલેથી submit થઈ ચૂકી છે.');
           return;
         }
         const submitBtn = document.getElementById('submitWorksheet');
@@ -433,12 +510,36 @@
             headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
             body: JSON.stringify({
               student_name: name,
+              device_id: getDeviceId(),
               grade: studentStandard.value || currentSheet.grade,
               answers: collectAnswers(),
             }),
           });
           const result = await response.json().catch(() => ({}));
+          if (response.status === 409 || result.already_submitted) {
+            rememberStudentName(name);
+            markSheetSubmitted(currentSheet.id, {
+              name: result.student_name || name,
+              score: result.score ?? '—',
+              total: result.total ?? '—',
+              percent: result.percent ?? 0,
+            });
+            setQuizLocked(true, result.message || 'આ worksheet પહેલેથી submit થઈ ચૂકી છે.');
+            resultMarks.textContent = `${result.score ?? '—'} / ${result.total ?? '—'}`;
+            resultMessage.textContent = result.message || 'Already submitted';
+            resultArea.classList.remove('hidden');
+            return;
+          }
           if (!response.ok) throw new Error(result.message || 'Submit failed');
+
+          rememberStudentName(name);
+          markSheetSubmitted(currentSheet.id, {
+            name,
+            score: result.score,
+            total: result.total,
+            percent: result.percent,
+          });
+          setQuizLocked(true, 'સફળતાપૂર્વક submit થયું. ફરી submit નહીં થાય.');
 
           resultMarks.textContent = `${result.score} / ${result.total}`;
           resultMessage.textContent = `${result.message || ''} (${result.percent || 0}%)`;
@@ -463,15 +564,12 @@
           });
         } catch (error) {
           alert(error?.message || 'Could not save answers');
-        } finally {
           submitBtn.disabled = false;
+        } finally {
           hideKidsLoader();
         }
       });
 
-      document.getElementById('retryWorksheet').onclick = () => {
-        if (currentSheet?.id) openSheet(currentSheet.id);
-      };
       document.getElementById('anotherWorksheet').onclick = async () => {
         worksheetArea.classList.add('hidden');
         resultArea.classList.add('hidden');
@@ -481,6 +579,9 @@
       };
 
       async function boot() {
+        getDeviceId();
+        const remembered = savedStudentName();
+        if (remembered) studentName.value = remembered;
         showKidsLoader('Loading Worksheets…');
         try {
           meta = await loadJson('/worksheet2/meta', { silent: true });

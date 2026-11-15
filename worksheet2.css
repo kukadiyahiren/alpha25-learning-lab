@@ -445,6 +445,29 @@
     box-shadow: 0 8px 20px rgba(22, 163, 74, 0.3);
 }
 
+.submit-button:disabled {
+    background: #94a3b8;
+    box-shadow: none;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.submit-once-note {
+    margin: 0 0 12px;
+    color: #b45309;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.submit-once-note.hidden {
+    display: none;
+}
+
+#studentName[readonly] {
+    background: #f1f5f9;
+    cursor: default;
+}
+
 
 /* =========================
    13. RESULT AREA
