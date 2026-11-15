@@ -1,8 +1,23 @@
 #!/bin/sh
 set -e
 
-# Ensure every boot picks up latest routes/config (fixes stale Render deploys)
-php artisan optimize:clear
+# Ensure runtime folders exist (API image may omit empty/cached view dirs)
+mkdir -p \
+  resources/views \
+  storage/app/public \
+  storage/framework/cache/data \
+  storage/framework/sessions \
+  storage/framework/views \
+  storage/logs \
+  bootstrap/cache
+
+# Clear caches without failing the whole boot if one step is noisy
+php artisan config:clear
+php artisan route:clear
+php artisan cache:clear || true
+php artisan view:clear || true
+php artisan event:clear || true
+
 php artisan migrate --force --no-interaction
 
 exec php \
