@@ -54,16 +54,19 @@ class CatalogBulkImportController extends Controller
     {
         $config = BulkImport::get($resource);
         $request->validate([
-            'file' => [
-                'required',
-                'file',
-                'max:10240',
-                'mimetypes:text/plain,text/csv,text/tsv,application/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/octet-stream',
-            ],
+            'file' => ['required', 'file', 'max:10240'],
         ]);
 
         $file = $request->file('file');
         $extension = strtolower($file->getClientOriginalExtension());
+        // HTML .xls samples often upload as text/html — validate by extension.
+        if (! in_array($extension, ['csv', 'txt', 'tsv', 'xls', 'xlsx'], true)) {
+            return response()->json([
+                'message' => 'Upload a CSV or Excel file (.csv, .xls, .xlsx).',
+                'errors' => ['file' => ['Upload a CSV or Excel file (.csv, .xls, .xlsx).']],
+            ], 422);
+        }
+
         $path = $file->getRealPath();
         $raw = @file_get_contents($path) ?: '';
         // Browser-generated .xls samples are HTML tables; PhpSpreadsheet xls reader rejects them.

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { api, API_ORIGIN } from '../api';
-import { downloadCsvSample, downloadExcelSample } from '../sampleDownload';
+import { api, API_ORIGIN, downloadFile } from '../api';
+import { downloadCsvSample } from '../sampleDownload';
 
 const BULK_COLUMNS = [
   'grade', 'subject', 'title', 'description', 'marks', 'time_label', 'icon', 'sort_order',
@@ -300,11 +300,12 @@ export default function Worksheet2Page() {
     }
   }
 
-  function downloadSample(type) {
+  async function downloadSample(type) {
     setBulkError('');
     try {
       if (type === 'xlsx') {
-        downloadExcelSample('worksheet2-sample.xls', BULK_COLUMNS, BULK_SAMPLES, 'Worksheets');
+        // Real .xlsx from API (browser HTML-.xls samples get rejected by MIME checks)
+        await downloadFile('/admin/worksheet2/template.xlsx', 'worksheet2-sample.xlsx');
       } else {
         downloadCsvSample('worksheet2-sample.csv', BULK_COLUMNS, BULK_SAMPLES);
       }
@@ -471,8 +472,8 @@ export default function Worksheet2Page() {
               One row = one question. Same grade + subject + title = one paper. Types: mcq, fill, true_false, short, sequence.
             </p>
             <div className="ws-inline-bar">
-              <button className="btn secondary" type="button" onClick={() => downloadSample('xlsx')}>Excel sample</button>
-              <button className="btn secondary" type="button" onClick={() => downloadSample('csv')}>CSV sample</button>
+              <button className="btn secondary" type="button" onClick={() => downloadSample('xlsx')}>Download Excel (.xlsx)</button>
+              <button className="btn secondary" type="button" onClick={() => downloadSample('csv')}>Download CSV</button>
             </div>
             <form onSubmit={importBulk} className="ws-bulk-form">
               {bulkError && <div className="error">{bulkError}</div>}
