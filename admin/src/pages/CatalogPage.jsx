@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { api } from '../api';
+import { api, downloadFile } from '../api';
 import { importBulkRows } from '../bulkImport';
 import { RESOURCES } from '../catalog';
 import { downloadCsvSample, downloadExcelSample } from '../sampleDownload';
@@ -209,20 +209,38 @@ export default function CatalogPage({ resource }) {
     }
   }
 
-  function downloadSample(type) {
+  async function downloadSample(type) {
     if (!config.bulk) return;
     setBulkError('');
+    const base = config.bulk.sample.replace(/\.csv$/, '');
+    const columns = config.bulk.columns;
+    const sampleRows = config.bulk.samples || [];
     try {
-      const base = config.bulk.sample.replace(/\.csv$/, '');
-      const columns = config.bulk.columns;
-      const rows = config.bulk.samples || [];
       if (type === 'xlsx') {
-        downloadExcelSample(`${base}.xls`, columns, rows, config.title);
+        // Real .xlsx from API — browser HTML-.xls samples get rejected by MIME checks
+        try {
+          await downloadFile(`/admin/bulk/${resource}/template.xlsx`, `${base}.xlsx`);
+        } catch {
+          await downloadFile(`/admin/${resource}/import-template.xlsx`, `${base}.xlsx`);
+        }
       } else {
-        downloadCsvSample(`${base}.csv`, columns, rows);
+        try {
+          await downloadFile(`/admin/bulk/${resource}/template.csv`, `${base}.csv`);
+        } catch {
+          downloadCsvSample(`${base}.csv`, columns, sampleRows);
+        }
       }
     } catch (err) {
-      setBulkError(err.message || 'Could not download the sample file.');
+      // Offline / old API fallback
+      try {
+        if (type === 'xlsx') {
+          downloadExcelSample(`${base}.xls`, columns, sampleRows, config.title);
+        } else {
+          downloadCsvSample(`${base}.csv`, columns, sampleRows);
+        }
+      } catch {
+        setBulkError(err.message || 'Could not download the sample file.');
+      }
     }
   }
 
@@ -270,7 +288,7 @@ export default function CatalogPage({ resource }) {
         <section className="panel bulk-panel">
           <h2>Bulk upload</h2>
           <p className="muted">
-            Download the sample sheet, fill one row per item, then upload the CSV or Excel file.
+            Download the Excel sample, edit one row per question, then upload the same file.
             Columns: {config.bulk.columns.map((column) => <code key={column} style={{ marginRight: 6 }}>{column}</code>)}
             {config.bulk.note ? ` ${config.bulk.note}` : ''}
           </p>
