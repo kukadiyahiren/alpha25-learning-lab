@@ -29,7 +29,7 @@ export default function Dashboard() {
           <p>What you add here is what students see on the learning site.</p>
         </div>
         <a
-          className="btn"
+          className="btn dash-frontend-btn"
           href={SITE_ORIGIN}
           target="_blank"
           rel="noopener noreferrer"

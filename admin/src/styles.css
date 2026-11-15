@@ -130,6 +130,20 @@ input:focus, textarea:focus, select:focus {
 }
 .top h1 { margin: 0 0 4px; font-size: clamp(1.35rem, 3vw, 1.6rem); }
 .top p { margin: 0 0 16px; color: var(--muted); }
+.top.ws-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.top.ws-top > div { min-width: 0; flex: 1; }
+.top.ws-top > .btn {
+  margin-left: auto;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.top.ws-top p { margin-bottom: 0; }
 
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
 .stat { padding: 16px; text-decoration: none; color: inherit; }
