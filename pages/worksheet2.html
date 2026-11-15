@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="gu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Worksheets - Alpha 25</title>
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="../favicon.svg">
+  <link rel="stylesheet" href="../style.css?v=23">
+  <link rel="stylesheet" href="../worksheet2.css?v=3">
+</head>
+<body class="worksheet2-page">
+  <header class="hero">
+    <div class="brand">📝 Worksheets</div>
+    <p>ધોરણ → વિષય → Worksheet → પ્રેક્ટિસ</p>
+  </header>
+  <nav id="nav"></nav>
+
+  <main class="container">
+    <section class="welcome-section">
+      <h2>🎓 Welcome to Worksheets</h2>
+      <p>ધોરણ 1 થી 8 માટે મફત Online Worksheet</p>
+      <p class="welcome-small">ધોરણ પસંદ કરો → વિષય પસંદ કરો → Worksheet પસંદ કરો</p>
+    </section>
+
+    <section class="selection-section" id="standardSection">
+      <div class="section-title">
+        <span class="step-number">1</span>
+        <div>
+          <h2>ધોરણ પસંદ કરો</h2>
+          <p>Select Standard</p>
+        </div>
+      </div>
+      <div id="standardList" class="standard-grid"></div>
+    </section>
+
+    <section id="subjectSection" class="selection-section hidden">
+      <div class="section-title">
+        <span class="step-number">2</span>
+        <div>
+          <h2>વિષય પસંદ કરો</h2>
+          <p id="subjectHint">Select Subject</p>
+        </div>
+      </div>
+      <div id="subjectList" class="subject-grid"></div>
+    </section>
+
+    <section id="worksheetSection" class="selection-section hidden">
+      <div class="section-title">
+        <span class="step-number">3</span>
+        <div>
+          <h2>Worksheet પસંદ કરો</h2>
+          <p id="sheetsHint">Select Worksheet</p>
+        </div>
+      </div>
+      <div id="worksheetList" class="worksheet-grid"></div>
+    </section>
+
+    <section id="worksheetArea" class="worksheet-area hidden">
+      <div class="worksheet-header">
+        <div>
+          <h2 id="worksheetTitle">Worksheet</h2>
+          <p id="worksheetDescription">Online Practice Worksheet</p>
+        </div>
+        <div class="worksheet-info">
+          <span id="worksheetMarks">20 ગુણ</span>
+          <span id="worksheetQuestions">20 પ્રશ્નો</span>
+        </div>
+      </div>
+
+      <div class="student-information">
+        <h3>👨‍🎓 વિદ્યાર્થીની માહિતી</h3>
+        <div class="student-form">
+          <div class="form-group">
+            <label for="studentName">વિદ્યાર્થીનું નામ</label>
+            <input id="studentName" type="text" placeholder="નામ લખો" autocomplete="name" required>
+          </div>
+          <div class="form-group">
+            <label for="studentStandard">ધોરણ</label>
+            <input id="studentStandard" type="text" readonly>
+          </div>
+        </div>
+      </div>
+
+      <form id="quizForm">
+        <div class="questions-container">
+          <h3>📝 વર્કશીટ પૂર્ણ કરો અને Submit દબાવો</h3>
+          <div id="questions" class="satra-paper"></div>
+        </div>
+        <div class="submit-area">
+          <button type="submit" id="submitWorksheet" class="submit-button">✅ Submit Worksheet</button>
+        </div>
+      </form>
+
+      <div id="resultArea" class="result-area hidden">
+        <div class="result-icon">🎉</div>
+        <h2>તમારું Result</h2>
+        <div id="resultMarks" class="result-marks"></div>
+        <p id="resultMessage">ખૂબ સરસ!</p>
+        <button type="button" id="retryWorksheet" class="retry-button">🔄 ફરી પ્રયાસ કરો</button>
+        <button type="button" id="anotherWorksheet" class="retry-button" style="margin-left:8px;background:#64748b">📚 બીજી Worksheet</button>
+      </div>
+    </section>
+
+    <section class="old-worksheets-section">
+      <div class="section-title">
+        <span class="step-number">📚</span>
+        <div>
+          <h2>જૂની Worksheets</h2>
+          <p>Previous Worksheets</p>
+        </div>
+      </div>
+      <div id="oldWorksheets" class="old-worksheets-list">
+        <p class="empty-message">Worksheet પસંદ કર્યા પછી અહીં જૂની Worksheets દેખાશે.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>© Alpha 25 Learning Lab</footer>
+  <script src="../app.js?v=23"></script>
+  <script>
+    (function () {
+      const HISTORY_KEY = 'alpha25_worksheet2_history';
+      const STANDARD_ICONS = ['👦', '👧', '🧒', '👨‍🎓', '🎓', '📘', '📗', '📙'];
+
+      let meta = { standards: [], subjects: [] };
+      let selectedGrade = null;
+      let selectedSubject = null;
+      let currentSheet = null;
+
+      const standardList = document.getElementById('standardList');
+      const subjectSection = document.getElementById('subjectSection');
+      const subjectList = document.getElementById('subjectList');
+      const subjectHint = document.getElementById('subjectHint');
+      const worksheetSection = document.getElementById('worksheetSection');
+      const worksheetList = document.getElementById('worksheetList');
+      const sheetsHint = document.getElementById('sheetsHint');
+      const worksheetArea = document.getElementById('worksheetArea');
+      const worksheetTitle = document.getElementById('worksheetTitle');
+      const worksheetDescription = document.getElementById('worksheetDescription');
+      const worksheetMarks = document.getElementById('worksheetMarks');
+      const worksheetQuestions = document.getElementById('worksheetQuestions');
+      const questionsBox = document.getElementById('questions');
+      const studentName = document.getElementById('studentName');
+      const studentStandard = document.getElementById('studentStandard');
+      const quizForm = document.getElementById('quizForm');
+      const resultArea = document.getElementById('resultArea');
+      const resultMarks = document.getElementById('resultMarks');
+      const resultMessage = document.getElementById('resultMessage');
+      const oldWorksheets = document.getElementById('oldWorksheets');
+
+      function subjectLabel(id) {
+        const hit = (meta.subjects || []).find((item) => item.id === id);
+        return hit ? `${hit.icon || ''} ${hit.name}` : id;
+      }
+
+      function readHistory() {
+        try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); }
+        catch { return []; }
+      }
+
+      function writeHistory(entry) {
+        const rows = readHistory();
+        rows.unshift(entry);
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(rows.slice(0, 20)));
+        renderHistory();
+      }
+
+      function renderHistory() {
+        const rows = readHistory();
+        if (!rows.length) {
+          oldWorksheets.innerHTML = '<p class="empty-message">હજી કોઈ Result ઉપલબ્ધ નથી.</p>';
+          return;
+        }
+        oldWorksheets.innerHTML = '';
+        rows.forEach((row) => {
+          const div = document.createElement('div');
+          div.className = 'old-worksheet-item';
+          div.innerHTML = `
+            <strong>${esc(row.name || 'Student')}</strong>
+            · Std ${esc(row.grade)} · ${esc(row.subject)} · ${esc(row.title)}
+            <br><b>${esc(row.score)} / ${esc(row.total)}</b>
+          `;
+          oldWorksheets.appendChild(div);
+        });
+      }
+
+      function renderStandards() {
+        const list = meta.standards?.length
+          ? meta.standards
+          : Array.from({ length: 5 }, (_, i) => ({
+            id: String(i + 1),
+            name: `ધોરણ ${i + 1}`,
+            english: `Standard ${i + 1}`,
+          }));
+
+        standardList.innerHTML = list.map((item, index) => `
+          <button type="button" class="standard-card" data-standard="${esc(item.id)}">
+            <span class="standard-icon">${STANDARD_ICONS[index % STANDARD_ICONS.length]}</span>
+            <strong>${esc(item.name)}</strong>
+            <small>${esc(item.english || '')}</small>
+          </button>
+        `).join('');
+      }
+
+      function showSubjects() {
+        subjectHint.textContent = `ધોરણ ${selectedGrade} · Select Subject`;
+        subjectList.innerHTML = '';
+        (meta.subjects || []).forEach((subject) => {
+          const card = document.createElement('button');
+          card.type = 'button';
+          card.className = 'subject-card';
+          card.dataset.subject = subject.id;
+          card.innerHTML = `
+            <span class="subject-icon">${esc(subject.icon || '📘')}</span>
+            <strong>${esc(subject.name)}</strong>
+            <small>${esc(subject.english || '')}</small>
+          `;
+          card.addEventListener('click', async () => {
+            selectedSubject = subject.id;
+            document.querySelectorAll('.subject-card').forEach((item) => item.classList.remove('active'));
+            card.classList.add('active');
+            worksheetArea.classList.add('hidden');
+            resultArea.classList.add('hidden');
+            await showWorksheets();
+            worksheetSection.classList.remove('hidden');
+            worksheetSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          });
+          subjectList.appendChild(card);
+        });
+        subjectSection.classList.remove('hidden');
+      }
+
+      async function showWorksheets() {
+        sheetsHint.textContent = `ધોરણ ${selectedGrade} · ${subjectLabel(selectedSubject)}`;
+        worksheetList.innerHTML = '<div class="loading">Loading…</div>';
+        showKidsLoader('Loading worksheets…');
+        try {
+          const rows = await loadJson(
+            `/worksheet2?grade=${encodeURIComponent(selectedGrade)}&subject=${encodeURIComponent(selectedSubject)}`,
+            { silent: true },
+          );
+          if (!rows.length) {
+            worksheetList.innerHTML = '<p class="empty-message">આ વિષય માટે હજુ worksheet નથી. Admin → Worksheets માં ઉમેરો.</p>';
+            return;
+          }
+          worksheetList.innerHTML = '';
+          rows.forEach((row) => {
+            const card = document.createElement('div');
+            card.className = 'worksheet-card';
+            const qCount = row.question_count ?? row.questions_count ?? 0;
+            card.innerHTML = `
+              <div class="worksheet-icon">${esc(row.icon || '📝')}</div>
+              <h3>${esc(row.title)}</h3>
+              <p>${esc(row.description || 'Online Practice Worksheet')}</p>
+              <p><small>${esc(row.marks || qCount)} ગુણ · ${esc(qCount)} પ્રશ્નો · ${esc(row.time_label || '')}</small></p>
+              <button type="button">Start Worksheet</button>
+            `;
+            card.querySelector('button').addEventListener('click', () => openSheet(row.id));
+            worksheetList.appendChild(card);
+          });
+        } catch {
+          worksheetList.innerHTML = '<div class="error-message">Worksheets લોડ થયા નથી. API ચાલુ છે તે ચકાસો.</div>';
+        } finally {
+          hideKidsLoader();
+        }
+      }
+
+      function groupBySection(questions) {
+        const groups = [];
+        const map = new Map();
+        questions.forEach((item, index) => {
+          const key = (item.section || '').trim() || 'પ્રશ્નો';
+          if (!map.has(key)) {
+            const group = { title: key, items: [] };
+            map.set(key, group);
+            groups.push(group);
+          }
+          map.get(key).items.push({ item, index });
+        });
+        return groups;
+      }
+
+      function renderQuestion(item, index) {
+        const type = item.type || 'mcq';
+        const opts = [...(item.options || [])];
+        const qid = item.id;
+        if (type === 'fill' || type === 'short' || type === 'sequence') {
+          return `
+            <div class="question" data-qid="${qid}" data-type="${esc(type)}">
+              <div class="question-text"><span class="question-number">${index + 1}.</span> ${esc(item.question)}</div>
+              <input type="text" name="q${qid}" class="blank-input" placeholder="જવાબ લખો" autocomplete="off" required>
+            </div>`;
+        }
+        if (type === 'clock') {
+          const hours = Array.from({ length: 12 }, (_, i) => i + 1)
+            .map((h) => `<option value="${h}">${h}</option>`).join('');
+          const minutes = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]
+            .map((m) => `<option value="${m}">${String(m).padStart(2, '0')}</option>`).join('');
+          return `
+            <div class="question" data-qid="${qid}" data-type="clock">
+              <div class="question-text"><span class="question-number">${index + 1}.</span> ${esc(item.question)}</div>
+              <div class="clock-pickers">
+                <label>કલાક <select name="q${qid}_hour" required>${hours}</select></label>
+                <label>મિનિટ <select name="q${qid}_minute" required>${minutes}</select></label>
+              </div>
+            </div>`;
+        }
+        if (type === 'match') {
+          const left = item.meta?.left || [];
+          const rights = opts.map((option) => `<option value="${esc(option)}">${esc(option)}</option>`).join('');
+          return `
+            <div class="question" data-qid="${qid}" data-type="match">
+              <div class="question-text"><span class="question-number">${index + 1}.</span> ${esc(item.question)}</div>
+              <div class="match-list">
+                ${left.map((side) => `
+                  <label class="match-row">
+                    <span>${esc(side)}</span>
+                    <select name="q${qid}_match_${esc(side)}" data-left="${esc(side)}" required>
+                      <option value="">પસંદ કરો</option>
+                      ${rights}
+                    </select>
+                  </label>
+                `).join('')}
+              </div>
+            </div>`;
+        }
+        if (type === 'true_false' && opts.length < 2) {
+          opts.push('સાચું', 'ખોટું');
+        }
+        return `
+          <div class="question" data-qid="${qid}" data-type="${esc(type)}">
+            <div class="question-text"><span class="question-number">${index + 1}.</span> ${esc(item.question)}</div>
+            <div class="options">
+              ${opts.map((option, oIndex) => `
+                <label class="option">
+                  <input type="radio" name="q${qid}" value="${oIndex}" required>
+                  <span>${esc(option)}</span>
+                </label>
+              `).join('')}
+            </div>
+          </div>`;
+      }
+
+      function collectAnswers() {
+        return (currentSheet?.questions || []).map((item) => {
+          const type = item.type || 'mcq';
+          const qid = item.id;
+          if (type === 'fill' || type === 'short' || type === 'sequence') {
+            const input = quizForm.querySelector(`input[name="q${qid}"]`);
+            return { question_id: qid, answer_text: input?.value || '' };
+          }
+          if (type === 'clock') {
+            const hour = Number(quizForm.querySelector(`select[name="q${qid}_hour"]`)?.value || 0);
+            const minute = Number(quizForm.querySelector(`select[name="q${qid}_minute"]`)?.value || 0);
+            return { question_id: qid, answer_meta: { hour, minute } };
+          }
+          if (type === 'match') {
+            const answers = {};
+            quizForm.querySelectorAll(`.question[data-qid="${qid}"] select[data-left]`).forEach((select) => {
+              answers[select.dataset.left] = select.value;
+            });
+            return { question_id: qid, answer_meta: { answers } };
+          }
+          const chosen = quizForm.querySelector(`input[name="q${qid}"]:checked`);
+          return { question_id: qid, answer_index: chosen ? Number(chosen.value) : null };
+        });
+      }
+
+      async function openSheet(id) {
+        showKidsLoader('Opening worksheet…');
+        try {
+          currentSheet = await loadJson(`/worksheet2/${id}`, { silent: true });
+          const questions = currentSheet.questions || [];
+          worksheetTitle.textContent = currentSheet.title || 'Worksheet';
+          worksheetDescription.textContent = currentSheet.description || 'Online Practice Worksheet';
+          worksheetMarks.textContent = `${currentSheet.marks || questions.length} ગુણ`;
+          worksheetQuestions.textContent = `${questions.length} પ્રશ્નો`;
+          studentName.value = '';
+          studentStandard.value = selectedGrade || currentSheet.grade || '';
+
+          const groups = groupBySection(questions);
+          questionsBox.innerHTML = groups.map((group) => `
+            <section class="paper-section">
+              <h4 class="paper-section-title">${esc(group.title)}</h4>
+              <div class="paper-section-body">
+                ${group.items.map(({ item, index }) => renderQuestion(item, index)).join('')}
+              </div>
+            </section>
+          `).join('');
+
+          resultArea.classList.add('hidden');
+          worksheetArea.classList.remove('hidden');
+          worksheetArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch (error) {
+          alert(error?.message || 'Could not open worksheet');
+        } finally {
+          hideKidsLoader();
+        }
+      }
+
+      standardList.addEventListener('click', (event) => {
+        const btn = event.target.closest('.standard-card');
+        if (!btn) return;
+        selectedGrade = btn.dataset.standard;
+        selectedSubject = null;
+        currentSheet = null;
+        document.querySelectorAll('.standard-card').forEach((item) => item.classList.remove('active'));
+        btn.classList.add('active');
+        studentStandard.value = selectedGrade;
+        worksheetSection.classList.add('hidden');
+        worksheetArea.classList.add('hidden');
+        resultArea.classList.add('hidden');
+        showSubjects();
+        subjectSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+
+      quizForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!currentSheet) return;
+        const name = studentName.value.trim();
+        if (!name) {
+          studentName.focus();
+          alert('વિદ્યાર્થીનું નામ લખો');
+          return;
+        }
+        const submitBtn = document.getElementById('submitWorksheet');
+        submitBtn.disabled = true;
+        showKidsLoader('Saving answers…');
+        try {
+          const response = await fetch(`${API_ORIGIN}/api/worksheet2/${currentSheet.id}/submit`, {
+            method: 'POST',
+            headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              student_name: name,
+              grade: studentStandard.value || currentSheet.grade,
+              answers: collectAnswers(),
+            }),
+          });
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(result.message || 'Submit failed');
+
+          resultMarks.textContent = `${result.score} / ${result.total}`;
+          resultMessage.textContent = `${result.message || ''} (${result.percent || 0}%)`;
+          resultArea.classList.remove('hidden');
+          resultArea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+          (result.answers || []).forEach((row) => {
+            const box = quizForm.querySelector(`.question[data-qid="${row.question_id}"]`);
+            if (!box) return;
+            box.classList.remove('correct', 'wrong');
+            box.classList.add(row.is_correct ? 'correct' : 'wrong');
+          });
+
+          writeHistory({
+            name,
+            grade: currentSheet.grade,
+            subject: subjectLabel(currentSheet.subject),
+            title: currentSheet.title,
+            score: result.score,
+            total: result.total,
+            at: Date.now(),
+          });
+        } catch (error) {
+          alert(error?.message || 'Could not save answers');
+        } finally {
+          submitBtn.disabled = false;
+          hideKidsLoader();
+        }
+      });
+
+      document.getElementById('retryWorksheet').onclick = () => {
+        if (currentSheet?.id) openSheet(currentSheet.id);
+      };
+      document.getElementById('anotherWorksheet').onclick = async () => {
+        worksheetArea.classList.add('hidden');
+        resultArea.classList.add('hidden');
+        await showWorksheets();
+        worksheetSection.classList.remove('hidden');
+        worksheetSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      };
+
+      async function boot() {
+        showKidsLoader('Loading Worksheets…');
+        try {
+          meta = await loadJson('/worksheet2/meta', { silent: true });
+          renderStandards();
+          renderHistory();
+        } catch {
+          standardList.innerHTML = '<div class="error-message">Worksheets API લોડ થયું નથી. Laravel migrate + API ચાલુ કરો.</div>';
+        } finally {
+          hideKidsLoader();
+        }
+      }
+
+      boot();
+    })();
+  </script>
+</body>
+</html>

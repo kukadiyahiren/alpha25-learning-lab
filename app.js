@@ -1,10 +1,12 @@
-const API_ORIGIN = 'https://alpha25-learning-lab-1.onrender.com';
+const API_ORIGIN = (location.hostname === '127.0.0.1' || location.hostname === 'localhost')
+  ? 'http://127.0.0.1:8000'
+  : 'https://alpha25-learning-lab-1.onrender.com';
 
 const NAV_PRIMARY = [
   ['Home', '../index.html'],
   ['Classes', 'classes.html'],
   ['Audio', 'audio.html'],
-  ['Worksheets', 'worksheets.html'],
+  ['Worksheets', 'worksheet2.html'],
   ['GK', 'gk.html'],
   ['Spoken English', 'spoken-english.html'],
   ['Phonics', 'phonics.html'],

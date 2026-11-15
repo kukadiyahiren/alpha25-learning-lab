@@ -12,6 +12,7 @@ use App\Models\Question;
 use App\Models\SpokenEnglishLesson;
 use App\Models\Subject;
 use App\Models\Worksheet;
+use App\Models\Worksheet2Sheet;
 
 class StatsController extends Controller
 {
@@ -24,6 +25,7 @@ class StatsController extends Controller
             'audio' => AudioStory::query()->count(),
             'ebooks' => Ebook::query()->count(),
             'worksheets' => Worksheet::query()->count(),
+            'worksheet2' => Worksheet2Sheet::query()->count(),
             'gk' => GkQuestion::query()->count(),
             'spoken' => SpokenEnglishLesson::query()->count(),
             'phonics' => PhonicsLesson::query()->count(),

@@ -1,4 +1,7 @@
-export const API_ORIGIN = 'https://alpha25-learning-lab-1.onrender.com';
+export const API_ORIGIN = (typeof window !== 'undefined'
+  && (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost'))
+  ? 'http://127.0.0.1:8000'
+  : 'https://alpha25-learning-lab-1.onrender.com';
 
 export function getToken() {
   return localStorage.getItem('alpha25_token');

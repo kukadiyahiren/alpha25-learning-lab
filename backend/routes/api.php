@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\QuestionController;
 use App\Http\Controllers\Api\StatsController;
 use App\Http\Controllers\Api\SubjectController;
 use App\Http\Controllers\Api\UploadChunkController;
+use App\Http\Controllers\Api\Worksheet2Controller;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
@@ -24,6 +25,12 @@ Route::get('/ebooks/{id}', [PublicContentController::class, 'ebook'])->where('id
 Route::get('/ebooks/{id}/file', [PublicContentController::class, 'ebookFile'])->where('id', '[0-9]+');
 Route::get('/public-file/{path}', [PublicContentController::class, 'publicFile'])->where('path', '.*');
 Route::get('/worksheets', [PublicContentController::class, 'worksheets']);
+Route::get('/worksheet2/meta', [Worksheet2Controller::class, 'meta']);
+Route::get('/worksheet2', [Worksheet2Controller::class, 'index']);
+Route::get('/worksheet2/{id}', [Worksheet2Controller::class, 'show'])->whereNumber('id');
+Route::post('/worksheet2/{id}/submit', [Worksheet2Controller::class, 'submit'])
+    ->whereNumber('id')
+    ->middleware('throttle:30,1');
 Route::get('/gk', [PublicContentController::class, 'gk']);
 Route::get('/spoken-english', [PublicContentController::class, 'spokenEnglish']);
 Route::get('/phonics', [PublicContentController::class, 'phonics']);
@@ -37,6 +44,18 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('admin/subjects', SubjectController::class);
     Route::apiResource('admin/chapters', ChapterController::class);
     Route::apiResource('admin/questions', QuestionController::class);
+
+    // Interactive Worksheet2 (Standard → Subject → practice) — dedicated routes
+    Route::get('/admin/worksheet2', [Worksheet2Controller::class, 'adminIndex']);
+    Route::get('/admin/worksheet2/attempts', [Worksheet2Controller::class, 'adminAttempts']);
+    Route::get('/admin/worksheet2/attempts/{id}', [Worksheet2Controller::class, 'adminAttemptShow'])->whereNumber('id');
+    Route::get('/admin/worksheet2/template.csv', [Worksheet2Controller::class, 'templateCsv']);
+    Route::get('/admin/worksheet2/template.xlsx', [Worksheet2Controller::class, 'templateXlsx']);
+    Route::post('/admin/worksheet2/import', [Worksheet2Controller::class, 'import']);
+    Route::get('/admin/worksheet2/{id}', [Worksheet2Controller::class, 'adminShow'])->whereNumber('id');
+    Route::post('/admin/worksheet2', [Worksheet2Controller::class, 'store']);
+    Route::post('/admin/worksheet2/{id}', [Worksheet2Controller::class, 'update'])->whereNumber('id');
+    Route::delete('/admin/worksheet2/{id}', [Worksheet2Controller::class, 'destroy'])->whereNumber('id');
 
     $bulkResources = ['audio', 'worksheets', 'gk', 'spoken-english', 'phonics'];
 

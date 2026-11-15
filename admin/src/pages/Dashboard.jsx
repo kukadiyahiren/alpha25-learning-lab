@@ -6,7 +6,7 @@ const cards = [
   ['grades', 'Classes', '/classes'],
   ['audio', 'Audio stories', '/audio'],
   ['ebooks', 'eBooks', '/ebooks'],
-  ['worksheets', 'Worksheets', '/worksheets'],
+  ['worksheet2', 'Worksheets', '/worksheets'],
   ['gk', 'GK questions', '/gk'],
   ['spoken', 'Spoken English', '/spoken-english'],
   ['phonics', 'Phonics', '/phonics'],

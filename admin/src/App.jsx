@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import CatalogPage from './pages/CatalogPage';
 import ClassesPage from './pages/ClassesPage';
+import Worksheet2Page from './pages/Worksheet2Page';
 
 function Private({ children }) {
   if (!getToken()) return <Navigate to="/login" replace />;
@@ -19,7 +20,8 @@ export default function App() {
       <Route path="/classes" element={<Private><ClassesPage /></Private>} />
       <Route path="/audio" element={<Private><CatalogPage resource="audio" /></Private>} />
       <Route path="/ebooks" element={<Private><CatalogPage resource="ebooks" /></Private>} />
-      <Route path="/worksheets" element={<Private><CatalogPage resource="worksheets" /></Private>} />
+      <Route path="/worksheets" element={<Private><Worksheet2Page /></Private>} />
+      <Route path="/worksheet2" element={<Navigate to="/worksheets" replace />} />
       <Route path="/gk" element={<Private><CatalogPage resource="gk" /></Private>} />
       <Route path="/spoken-english" element={<Private><CatalogPage resource="spoken-english" /></Private>} />
       <Route path="/phonics" element={<Private><CatalogPage resource="phonics" /></Private>} />
