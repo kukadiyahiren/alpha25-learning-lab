@@ -314,17 +314,20 @@ function bootPage() {
   document.documentElement.classList.remove('soft-leaving', 'soft-entering');
   ensurePlayfulBackground();
   ensureCursorFun();
-  const nav = document.getElementById('nav');
-  if (!nav) return;
+  const nav = ensureSiteNav();
   const isRoot = !location.pathname.includes('/pages/');
   nav.innerHTML = buildNav(isRoot ? 'root' : '');
   wireNavInteractions(nav);
   syncNavOffset();
+  // Re-measure after fonts/layout settle so padding never collapses to 0.
+  window.requestAnimationFrame(() => syncNavOffset());
 }
 
 function isPersistentNode(node) {
   if (!(node instanceof Element)) return false;
-  return node.classList.contains('bg-fun')
+  // Keep the menu across soft navigations so it never remounts empty/hidden.
+  return node.id === 'nav'
+    || node.classList.contains('bg-fun')
     || node.classList.contains('cursor-fun')
     || node.classList.contains('page-veil')
     || node.classList.contains('kids-loader');
@@ -338,6 +341,19 @@ function markSoftPageRoots() {
     }
     child.classList.add('soft-page-root');
   });
+}
+
+function ensureSiteNav() {
+  let nav = document.getElementById('nav');
+  if (!nav) {
+    nav = document.createElement('nav');
+    nav.id = 'nav';
+  }
+  // Always pin menu at the top of the document flow (fixed bar).
+  if (document.body.firstChild !== nav) {
+    document.body.insertBefore(nav, document.body.firstChild);
+  }
+  return nav;
 }
 
 function runSoftPageCleanup() {
@@ -368,6 +384,8 @@ function swapPageBody(doc) {
       nextScripts.push(node);
       return;
     }
+    // Skip incoming nav — persistent site menu is kept from the current page.
+    if (node.nodeType === 1 && node.id === 'nav') return;
     nextNodes.push(document.importNode(node, true));
   });
 
@@ -377,6 +395,7 @@ function swapPageBody(doc) {
 
   nextNodes.forEach((node) => document.body.appendChild(node));
   keep.forEach((node) => document.body.appendChild(node));
+  ensureSiteNav();
 
   nextScripts.forEach((oldScript) => {
     const script = document.createElement('script');
@@ -403,7 +422,8 @@ async function softNavigate(url, { push = true } = {}) {
   showKidsLoader('Opening a fun page…');
 
   const pageUrl = new URL(url, location.href).href;
-  const useViewTransition = typeof document.startViewTransition === 'function' && !prefersReducedMotion();
+  // View Transitions can hang in some embeds/browsers and leave the loader forever.
+  const useViewTransition = false;
 
   try {
     const response = await fetch(pageUrl, { headers: { Accept: 'text/html' } });
@@ -422,25 +442,29 @@ async function softNavigate(url, { push = true } = {}) {
       window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     };
 
-    if (useViewTransition) {
-      await document.startViewTransition(apply).finished.catch(() => {});
+    if (useViewTransition && typeof document.startViewTransition === 'function') {
+      const transition = document.startViewTransition(apply);
+      await Promise.race([
+        transition.finished.catch(() => {}),
+        wait(1200),
+      ]);
     } else if (prefersReducedMotion()) {
       apply();
     } else {
       document.documentElement.classList.add('soft-leaving');
-      await wait(200);
+      await wait(160);
       apply();
       document.documentElement.classList.remove('soft-leaving');
       document.documentElement.classList.add('soft-entering');
-      await wait(380);
+      await wait(280);
       document.documentElement.classList.remove('soft-entering');
     }
   } catch {
     location.href = pageUrl;
   } finally {
-    hideKidsLoader();
+    hideKidsLoader(true);
     softNavigating = false;
-    document.body.classList.remove('is-navigating');
+    document.body.classList.remove('is-navigating', 'nav-open');
     document.documentElement.classList.remove('soft-leaving', 'soft-entering');
   }
 }

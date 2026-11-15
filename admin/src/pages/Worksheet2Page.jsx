@@ -54,6 +54,61 @@ function parseMatchMeta(item) {
   return { left, answers };
 }
 
+function formatStudentAnswer(answer) {
+  const question = answer.question || {};
+  const type = question.type || 'mcq';
+  const options = Array.isArray(question.options) ? question.options : [];
+
+  if (answer.answer_text != null && String(answer.answer_text).trim() !== '') {
+    return String(answer.answer_text);
+  }
+
+  if (type === 'clock' && answer.answer_meta) {
+    const hour = answer.answer_meta.hour ?? '—';
+    const minute = String(answer.answer_meta.minute ?? 0).padStart(2, '0');
+    return `${hour}:${minute}`;
+  }
+
+  if (type === 'match' && answer.answer_meta?.answers) {
+    return Object.entries(answer.answer_meta.answers)
+      .map(([left, right]) => `${left} → ${right}`)
+      .join(', ');
+  }
+
+  if (answer.answer_index != null && answer.answer_index !== '') {
+    const idx = Number(answer.answer_index);
+    if (Number.isInteger(idx) && options[idx] != null && options[idx] !== '') {
+      return options[idx];
+    }
+    return `Option ${idx + 1}`;
+  }
+
+  return '—';
+}
+
+function formatCorrectAnswer(question) {
+  if (!question) return '—';
+  const type = question.type || 'mcq';
+  const options = Array.isArray(question.options) ? question.options : [];
+
+  if (['fill', 'short', 'sequence'].includes(type)) {
+    return question.answer_text || '—';
+  }
+  if (type === 'clock') {
+    const hour = question.meta?.hour ?? '—';
+    const minute = String(question.meta?.minute ?? 0).padStart(2, '0');
+    return `${hour}:${minute}`;
+  }
+  if (type === 'match') {
+    return Object.entries(question.meta?.answers || {})
+      .map(([left, right]) => `${left} → ${right}`)
+      .join(', ') || '—';
+  }
+  const idx = Number(question.answer_index);
+  if (Number.isInteger(idx) && options[idx] != null) return options[idx];
+  return '—';
+}
+
 export default function Worksheet2Page() {
   const [meta, setMeta] = useState({ standards: [], subjects: [], question_types: [] });
   const [rows, setRows] = useState([]);
@@ -382,9 +437,18 @@ export default function Worksheet2Page() {
                 <ul className="ws-answer-list">
                   {(attemptDetail.answers || []).map((answer) => (
                     <li key={answer.id}>
-                      {answer.is_correct ? '✅' : '❌'}{' '}
-                      {answer.question?.question || `Q#${answer.question_id}`}
-                      {answer.answer_text ? ` → ${answer.answer_text}` : ''}
+                      <div className="ws-answer-q">
+                        {answer.is_correct ? '✅' : '❌'}{' '}
+                        {answer.question?.question || `Q#${answer.question_id}`}
+                      </div>
+                      <div className="ws-answer-given">
+                        <span className="muted">Student:</span> {formatStudentAnswer(answer)}
+                      </div>
+                      {!answer.is_correct && (
+                        <div className="ws-answer-correct">
+                          <span className="muted">Correct:</span> {formatCorrectAnswer(answer.question)}
+                        </div>
+                      )}
                     </li>
                   ))}
                 </ul>

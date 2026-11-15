@@ -263,7 +263,7 @@ body.is-navigating { cursor: progress; }
   50% { transform: translate(30px, -40px) scale(1.12); }
 }
 
-#nav, .hero, .home-stage, .page, .poster-widgets, footer, main {
+.hero, .home-stage, .page, .poster-widgets, footer, main {
   position: relative;
   z-index: 1;
 }
