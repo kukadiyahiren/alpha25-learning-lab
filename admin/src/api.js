@@ -8,7 +8,7 @@ export const API_ORIGIN = isLocalHost
 /** Public learning site (opens in a new tab from admin). */
 export const SITE_ORIGIN = isLocalHost
   ? 'http://127.0.0.1:8080'
-  : (import.meta.env.VITE_SITE_ORIGIN || 'https://alpha25-learning-lab.pages.dev');
+  : (import.meta.env.VITE_SITE_ORIGIN || 'https://alpha25-learning-lab.herrytestnew.workers.dev');
 
 export function getToken() {
   return localStorage.getItem('alpha25_token');
