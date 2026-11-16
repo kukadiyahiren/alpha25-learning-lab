@@ -310,12 +310,24 @@ class Worksheet2Controller extends Controller
         $path = $file->getRealPath();
         $raw = @file_get_contents($path) ?: '';
 
-        if ($extension === 'xls' && str_contains(strtolower($raw), '<table')) {
-            $matrix = $this->matrixFromHtml($raw);
-        } elseif (in_array($extension, ['xlsx', 'xls'], true)) {
-            $matrix = IOFactory::load($path)->getActiveSheet()->toArray(null, true, true, false);
-        } else {
-            $matrix = $this->matrixFromCsv($path);
+        try {
+            if ($extension === 'xls' && str_contains(strtolower($raw), '<table')) {
+                $matrix = $this->matrixFromHtml($raw);
+            } elseif (in_array($extension, ['xlsx', 'xls'], true)) {
+                $sheet = IOFactory::load($path)->getActiveSheet();
+                $highestRow = max(1, (int) $sheet->getHighestDataRow());
+                $highestColumn = $sheet->getHighestDataColumn();
+                $matrix = $sheet->rangeToArray('A1:'.$highestColumn.$highestRow, null, true, true, false);
+            } else {
+                $matrix = $this->matrixFromCsv($path);
+            }
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'message' => 'Could not read the spreadsheet. Download a fresh Excel sample, keep only filled rows, and upload again.',
+                'errors' => ['file' => ['Could not read the spreadsheet.']],
+            ], 422);
         }
 
         if ($matrix === [] || count($matrix) < 2) {

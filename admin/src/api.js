@@ -32,7 +32,18 @@ export async function api(path, { method = 'GET', body, formData } = {}) {
     payload = JSON.stringify(body);
   }
 
-  const response = await fetch(`${API_ORIGIN}/api${path}`, { method, headers, body: payload });
+  let response;
+  try {
+    response = await fetch(`${API_ORIGIN}/api${path}`, { method, headers, body: payload });
+  } catch (err) {
+    const error = new Error(
+      `Cannot reach API (${API_ORIGIN}). Check your internet, or if using production wait for Render to wake / redeploy.`,
+    );
+    error.status = 0;
+    error.errors = {};
+    error.cause = err;
+    throw error;
+  }
   const raw = response.status === 204 ? '' : await response.text();
   let data = {};
   if (raw) {

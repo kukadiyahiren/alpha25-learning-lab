@@ -69,13 +69,22 @@ class CatalogBulkImportController extends Controller
 
         $path = $file->getRealPath();
         $raw = @file_get_contents($path) ?: '';
-        // Browser-generated .xls samples are HTML tables; PhpSpreadsheet xls reader rejects them.
-        if ($extension === 'xls' && str_contains(strtolower($raw), '<table')) {
-            $rows = $this->rowsFromHtmlTable($raw, $config['aliases']);
-        } elseif (in_array($extension, ['xlsx', 'xls'], true)) {
-            $rows = $this->rowsFromExcel($path, $config['aliases']);
-        } else {
-            $rows = $this->rowsFromCsv($path, $config['aliases']);
+        try {
+            // Browser-generated .xls samples are HTML tables; PhpSpreadsheet xls reader rejects them.
+            if ($extension === 'xls' && str_contains(strtolower($raw), '<table')) {
+                $rows = $this->rowsFromHtmlTable($raw, $config['aliases']);
+            } elseif (in_array($extension, ['xlsx', 'xls'], true)) {
+                $rows = $this->rowsFromExcel($path, $config['aliases']);
+            } else {
+                $rows = $this->rowsFromCsv($path, $config['aliases']);
+            }
+        } catch (\Throwable $e) {
+            report($e);
+
+            return response()->json([
+                'message' => 'Could not read the spreadsheet. Download a fresh Excel sample, keep only filled rows, and upload again.',
+                'errors' => ['file' => ['Could not read the spreadsheet.']],
+            ], 422);
         }
 
         if ($rows === []) {
@@ -140,7 +149,10 @@ class CatalogBulkImportController extends Controller
     private function rowsFromExcel(string $path, array $aliases): array
     {
         $sheet = IOFactory::load($path)->getActiveSheet();
-        $matrix = $sheet->toArray(null, true, true, false);
+        // Prefer data range — Excel often reports 1M+ empty rows after editing a sample.
+        $highestRow = max(1, (int) $sheet->getHighestDataRow());
+        $highestColumn = $sheet->getHighestDataColumn();
+        $matrix = $sheet->rangeToArray('A1:'.$highestColumn.$highestRow, null, true, true, false);
         if ($matrix === []) {
             return [];
         }
@@ -149,6 +161,16 @@ class CatalogBulkImportController extends Controller
         $rows = [];
         foreach ($matrix as $data) {
             if (! is_array($data)) {
+                continue;
+            }
+            $hasValue = false;
+            foreach ($data as $cell) {
+                if (trim((string) ($cell ?? '')) !== '') {
+                    $hasValue = true;
+                    break;
+                }
+            }
+            if (! $hasValue) {
                 continue;
             }
             $rows[] = $this->mapRow($header, $data);
