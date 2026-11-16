@@ -107,13 +107,16 @@ class BulkImport
                 'sheet' => 'GK',
                 'filename' => 'gk-questions-sample',
                 'model' => GkQuestion::class,
-                'columns' => ['category', 'question', 'answer', 'option_1', 'option_2', 'option_3', 'option_4', 'sort_order'],
+                'columns' => ['section', 'category', 'question', 'answer', 'option_1', 'option_2', 'option_3', 'option_4', 'sort_order'],
                 'samples' => [
-                    ['Gujarat', 'ગુજરાતની રાજધાની કઈ છે?', 'ગાંધીનગર', 'અમદાવાદ', 'ગાંધીનગર', 'સુરત', 'રાજકોટ', 1],
-                    ['India', 'ભારતની રાજધાની કઈ છે?', 'નવી દિલ્હી', 'મુંબઈ', 'નવી દિલ્હી', 'કોલકાતા', 'ચેન્નઈ', 2],
-                    ['World', 'પૃથ્વીનો ઉપગ્રહ કયો છે?', 'ચંદ્ર', 'સૂર્ય', 'મંગળ', 'ચંદ્ર', 'શુક્ર', 3],
+                    ['general', 'Gujarat', 'ગુજરાતની રાજધાની કઈ છે?', 'ગાંધીનગર', 'અમદાવાદ', 'ગાંધીનગર', 'સુરત', 'રાજકોટ', 1],
+                    ['general', 'India', 'ભારતની રાજધાની કઈ છે?', 'નવી દિલ્હી', 'મુંબઈ', 'નવી દિલ્હી', 'કોલકાતા', 'ચેન્નઈ', 2],
+                    ['competitive', 'Exam', 'ભારતના બંધારણમાં કેટલી અનુસૂચિઓ છે?', '12', '10', '11', '12', '14', 1],
                 ],
                 'aliases' => [
+                    'sec' => 'section',
+                    'type' => 'section',
+                    'gk_section' => 'section',
                     'cat' => 'category',
                     'topic' => 'category',
                     'q' => 'question',
@@ -128,6 +131,7 @@ class BulkImport
                     'sort' => 'sort_order',
                 ],
                 'map' => function (array $row, int $line): array {
+                    $section = GkQuestion::normalizeSection($row['section'] ?? 'general');
                     $category = trim((string) ($row['category'] ?? ''));
                     $question = trim((string) ($row['question'] ?? ''));
                     $answer = trim((string) ($row['answer'] ?? ''));
@@ -155,6 +159,7 @@ class BulkImport
 
                     return [
                         'payload' => [
+                            'section' => $section,
                             'category' => $category,
                             'question' => $question,
                             'answer' => $answer,

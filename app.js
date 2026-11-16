@@ -32,7 +32,7 @@ function homeHref(base = '') {
 
 function logoMarkup(base = '') {
   return `
-    <a class="site-logo" href="${homeHref(base)}" aria-label="Alpha 25 Learning Lab home">
+    <a class="site-logo" href="${homeHref(base)}" aria-label="Alpha Kids Learning Lab home">
       <span class="logo-mark" aria-hidden="true">
         <svg viewBox="0 0 64 64" width="44" height="44">
           <defs>
@@ -445,7 +445,7 @@ async function softNavigate(url, { push = true } = {}) {
     if (useViewTransition && typeof document.startViewTransition === 'function') {
       const transition = document.startViewTransition(apply);
       await Promise.race([
-        transition.finished.catch(() => {}),
+        transition.finished.catch(() => { }),
         wait(1200),
       ]);
     } else if (prefersReducedMotion()) {

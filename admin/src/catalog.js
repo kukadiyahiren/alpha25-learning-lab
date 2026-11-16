@@ -57,25 +57,36 @@ export const RESOURCES = {
   },
   gk: {
     title: 'GK questions',
-    hint: 'Objective questions with multiple-choice options. Mark the correct answer in the Answer field.',
+    hint: 'Add questions under General Knowledge or Competitive Exam. Bulk upload uses the section column.',
     bulk: {
-      columns: ['category', 'question', 'answer', 'option_1', 'option_2', 'option_3', 'option_4', 'sort_order'],
+      columns: ['section', 'category', 'question', 'answer', 'option_1', 'option_2', 'option_3', 'option_4', 'sort_order'],
       sample: 'gk-questions-sample.csv',
       samples: [
-        ['Gujarat', 'ગુજરાતની રાજધાની કઈ છે?', 'ગાંધીનગર', 'અમદાવાદ', 'ગાંધીનગર', 'સુરત', 'રાજકોટ', 1],
-        ['India', 'ભારતની રાજધાની કઈ છે?', 'નવી દિલ્હી', 'મુંબઈ', 'નવી દિલ્હી', 'કોલકાતા', 'ચેન્નઈ', 2],
-        ['World', 'પૃથ્વીનો ઉપગ્રહ કયો છે?', 'ચંદ્ર', 'સૂર્ય', 'મંગળ', 'ચંદ્ર', 'શુક્ર', 3],
+        ['general', 'Gujarat', 'ગુજરાતની રાજધાની કઈ છે?', 'ગાંધીનગર', 'અમદાવાદ', 'ગાંધીનગર', 'સુરત', 'રાજકોટ', 1],
+        ['general', 'India', 'ભારતની રાજધાની કઈ છે?', 'નવી દિલ્હી', 'મુંબઈ', 'નવી દિલ્હી', 'કોલકાતા', 'ચેન્નઈ', 2],
+        ['competitive', 'Exam', 'ભારતના બંધારણમાં કેટલી અનુસૂચિઓ છે?', '12', '10', '11', '12', '14', 1],
       ],
-      note: 'One question per row. Fill option_1…option_4 for multiple choice. Answer must match the correct option.',
+      note: 'section must be general or competitive. One question per row. Fill option_1…option_4 for MCQ. Answer must match the correct option.',
     },
     fields: [
+      {
+        name: 'section',
+        label: 'Section',
+        type: 'select',
+        required: true,
+        defaultValue: 'general',
+        options: [
+          { value: 'general', label: 'General Knowledge' },
+          { value: 'competitive', label: 'Competitive Exam' },
+        ],
+      },
       { name: 'category', label: 'Category', required: true, placeholder: 'Gujarat' },
       { name: 'question', label: 'Question', type: 'textarea', required: true },
       { name: 'options', label: 'Answer options', type: 'options', hint: 'Add 2–4 choices students can pick from.' },
       { name: 'answer', label: 'Correct answer', type: 'textarea', required: true, placeholder: 'Must match one option text' },
       { name: 'sort_order', label: 'Order', type: 'number' },
     ],
-    columns: ['category', 'question', 'answer'],
+    columns: ['section', 'category', 'question', 'answer'],
   },
   'spoken-english': {
     title: 'Spoken English',

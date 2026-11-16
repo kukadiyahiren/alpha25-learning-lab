@@ -15,6 +15,9 @@ const HEADER_ALIASES = {
   standard: 'grade',
   desc: 'description',
   details: 'description',
+  sec: 'section',
+  type: 'section',
+  gk_section: 'section',
   cat: 'category',
   topic_category: 'category',
   q: 'question',
@@ -138,6 +141,10 @@ function buildFormData(resource, row) {
   const data = new FormData();
 
   if (resource === 'gk') {
+    const rawSection = String(row.section ?? 'general').trim().toLowerCase().replace(/[\s-]+/g, '_');
+    const section = ['competitive', 'competitive_exam', 'exam', 'cet'].includes(rawSection)
+      ? 'competitive'
+      : 'general';
     const category = String(row.category ?? '').trim();
     const question = String(row.question ?? '').trim();
     const answer = String(row.answer ?? '').trim();
@@ -151,6 +158,7 @@ function buildFormData(resource, row) {
       return { error: 'category, question and answer are needed.' };
     }
 
+    data.append('section', section);
     data.append('category', category);
     data.append('question', question);
     data.append('answer', answer);

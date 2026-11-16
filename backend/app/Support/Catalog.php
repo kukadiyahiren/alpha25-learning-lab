@@ -8,6 +8,7 @@ use App\Models\GkQuestion;
 use App\Models\PhonicsLesson;
 use App\Models\SpokenEnglishLesson;
 use App\Models\Worksheet;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\File;
 
 class Catalog
@@ -59,6 +60,7 @@ class Catalog
             'gk' => [
                 'model' => GkQuestion::class,
                 'rules' => [
+                    'section' => ['required', 'string', Rule::in(GkQuestion::sectionIds())],
                     'category' => ['required', 'string', 'max:100'],
                     'question' => ['required', 'string'],
                     'answer' => ['required', 'string'],

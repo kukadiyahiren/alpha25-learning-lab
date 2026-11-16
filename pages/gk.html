@@ -1,21 +1,88 @@
 <!DOCTYPE html>
 <html lang="gu">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>GK - Alpha 25</title><link rel="icon" href="../favicon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="../favicon.svg">
+  <title>GK - Alpha 25</title>
+  <link rel="icon" href="../favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="../favicon.svg">
   <link rel="stylesheet" href="../style.css?v=24">
+  <style>
+    .gk-section-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 0 0 18px;
+    }
+    .gk-section-tab {
+      flex: 1 1 160px;
+      border: 2px solid #cbd5e1;
+      background: #fff;
+      color: #0f172a;
+      border-radius: 14px;
+      padding: 12px 14px;
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+      text-align: left;
+      transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+    }
+    .gk-section-tab small {
+      display: block;
+      margin-top: 4px;
+      font-weight: 600;
+      color: #64748b;
+      font-size: 0.82rem;
+    }
+    .gk-section-tab:hover { transform: translateY(-1px); }
+    .gk-section-tab.is-active {
+      border-color: #0e7490;
+      background: linear-gradient(135deg, #ecfeff, #f0fdf4);
+      color: #0f766e;
+    }
+    .gk-section-tab.is-active small { color: #0f766e; }
+    .gk-section-panel[hidden] { display: none !important; }
+    .gk-empty {
+      background: #fff;
+      border: 1px dashed #cbd5e1;
+      border-radius: 14px;
+      padding: 22px 16px;
+      color: #64748b;
+      text-align: center;
+    }
+    @media (max-width: 560px) {
+      .gk-section-tab { flex: 1 1 100%; }
+    }
+  </style>
 </head>
+
 <body>
   <header class="hero">
     <div class="brand">🌍 General Knowledge</div>
-    <p>Objective questions — pick the right answer</p>
+    <p>General Knowledge અને Competitive Exam — section પસંદ કરો</p>
   </header>
   <nav id="nav"></nav>
-  <main class="page"><div id="gk" class="grid"></div></main>
-  <footer>© Alpha 25 Learning Lab</footer>
+  <main class="page">
+    <div class="gk-section-tabs" id="gkTabs" role="tablist" aria-label="GK sections"></div>
+    <div id="gk"></div>
+  </main>
+  <footer>© Alpha Kids Learning Lab</footer>
   <script src="../app.js?v=24"></script>
   <script>
+    const SECTION_META = {
+      general: {
+        label: 'General Knowledge',
+        hint: 'સામાન્ય જ્ઞાનના પ્રશ્નો',
+        icon: '🌍',
+      },
+      competitive: {
+        label: 'Competitive Exam',
+        hint: 'પરીક્ષા / competitive તૈયારી',
+        icon: '🎯',
+      },
+    };
+
     function checkGk(button, answer) {
       const wrap = button.closest('.gk-options');
       if (!wrap || wrap.dataset.locked === '1') return;
@@ -36,32 +103,30 @@
       }
     }
 
-    loadJson('/gk').then((groups) => {
-      const box = document.getElementById('gk');
-      if (!groups.length) {
-        box.innerHTML = emptyMessage('હજુ કોઈ GK પ્રશ્ન ઉમેર્યો નથી.');
-        return;
+    function renderGroups(groups) {
+      if (!groups || !groups.length) {
+        return '<div class="gk-empty">આ section માં હજુ કોઈ પ્રશ્ન નથી. Admin → GK માં section પસંદ કરીને ઉમેરો.</div>';
       }
-      box.innerHTML = groups.map((group) => `
+      return groups.map((group) => `
         <div class="card">
           <h2>${esc(group.category)}</h2>
-          ${group.questions.map((question, index) => {
+          ${(group.questions || []).map((question, index) => {
             const options = Array.isArray(question.options) ? question.options.filter(Boolean) : [];
             const choices = options.length >= 2
               ? `<div class="gk-options">${options.map((option, optIndex) => `
-                  <button
-                    type="button"
-                    class="gk-option"
-                    data-value="${esc(option)}"
-                    onclick='checkGk(this, ${JSON.stringify(String(question.answer || ''))})'
-                  >
-                    <span class="gk-letter">${String.fromCharCode(65 + optIndex)}</span>
-                    <span>${esc(option)}</span>
-                  </button>
-                `).join('')}</div>
-                <div class="gk-feedback" hidden></div>`
+                    <button
+                      type="button"
+                      class="gk-option"
+                      data-value="${esc(option)}"
+                      onclick='checkGk(this, ${JSON.stringify(String(question.answer || ''))})'
+                    >
+                      <span class="gk-letter">${String.fromCharCode(65 + optIndex)}</span>
+                      <span>${esc(option)}</span>
+                    </button>
+                  `).join('')}</div>
+                  <div class="gk-feedback" hidden></div>`
               : `<button class="btn" onclick="showAnswer('g${question.id}')">જવાબ</button>
-                 <div id="g${question.id}" class="answer">${esc(question.answer)}</div>`;
+                   <div id="g${question.id}" class="answer">${esc(question.answer)}</div>`;
             return `
               <div class="question">
                 <b>Q${index + 1}. ${esc(question.question)}</b>
@@ -71,9 +136,73 @@
           }).join('')}
         </div>
       `).join('');
+    }
+
+    function normalizePayload(payload) {
+      if (Array.isArray(payload?.sections)) return payload.sections;
+      // Old API shape: flat category groups → treat as general
+      if (Array.isArray(payload)) {
+        return [
+          { id: 'general', label: 'General Knowledge', groups: payload },
+          { id: 'competitive', label: 'Competitive Exam', groups: [] },
+        ];
+      }
+      return [];
+    }
+
+    function activateSection(sectionId) {
+      document.querySelectorAll('.gk-section-tab').forEach((tab) => {
+        tab.classList.toggle('is-active', tab.dataset.section === sectionId);
+      });
+      document.querySelectorAll('.gk-section-panel').forEach((panel) => {
+        panel.hidden = panel.dataset.section !== sectionId;
+      });
+    }
+
+    loadJson('/gk').then((payload) => {
+      const sections = normalizePayload(payload);
+      const tabs = document.getElementById('gkTabs');
+      const box = document.getElementById('gk');
+
+      if (!sections.length) {
+        box.innerHTML = emptyMessage('હજુ કોઈ GK પ્રશ્ન ઉમેર્યો નથી.');
+        return;
+      }
+
+      tabs.innerHTML = sections.map((section, index) => {
+        const meta = SECTION_META[section.id] || { label: section.label, hint: '', icon: '📘' };
+        return `
+          <button
+            type="button"
+            class="gk-section-tab ${index === 0 ? 'is-active' : ''}"
+            data-section="${esc(section.id)}"
+            role="tab"
+            aria-selected="${index === 0 ? 'true' : 'false'}"
+          >
+            ${meta.icon || '📘'} ${esc(meta.label || section.label)}
+            <small>${esc(meta.hint || '')}</small>
+          </button>
+        `;
+      }).join('');
+
+      box.innerHTML = sections.map((section, index) => `
+        <div class="gk-section-panel" data-section="${esc(section.id)}" ${index === 0 ? '' : 'hidden'}>
+          ${renderGroups(section.groups || [])}
+        </div>
+      `).join('');
+
+      tabs.addEventListener('click', (event) => {
+        const tab = event.target.closest('.gk-section-tab');
+        if (!tab) return;
+        activateSection(tab.dataset.section);
+        tabs.querySelectorAll('.gk-section-tab').forEach((item) => {
+          item.setAttribute('aria-selected', item === tab ? 'true' : 'false');
+        });
+      });
     }).catch(() => {
       document.getElementById('gk').innerHTML = emptyMessage('Content લોડ થયું નથી. Laravel API ચાલુ છે તે ચકાસો.');
     });
   </script>
 </body>
+
 </html>

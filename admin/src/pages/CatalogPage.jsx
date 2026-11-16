@@ -8,7 +8,9 @@ const emptyOptions = () => ['', '', '', ''];
 
 const emptyFrom = (fields) => Object.fromEntries(fields.map((field) => [
   field.name,
-  field.type === 'options' ? emptyOptions() : '',
+  field.type === 'options'
+    ? emptyOptions()
+    : (field.defaultValue ?? (field.type === 'select' && field.options?.[0]?.value) ?? ''),
 ]));
 
 function optionsFromRow(value) {
@@ -24,6 +26,9 @@ export default function CatalogPage({ resource }) {
   const [files, setFiles] = useState({});
   const [editing, setEditing] = useState(null);
   const [query, setQuery] = useState('');
+  const [sectionFilter, setSectionFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
@@ -31,6 +36,7 @@ export default function CatalogPage({ resource }) {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkMessage, setBulkMessage] = useState('');
   const [bulkError, setBulkError] = useState('');
+  const sectionField = config.fields.find((field) => field.name === 'section' && field.type === 'select');
 
   async function load() {
     const data = await api(`/admin/${resource}`);
@@ -46,14 +52,31 @@ export default function CatalogPage({ resource }) {
     setBulkFile(null);
     setBulkMessage('');
     setBulkError('');
+    setQuery('');
+    setSectionFilter('all');
+    setPage(1);
     load().catch((err) => setError(err.message));
   }, [resource]);
 
+  useEffect(() => {
+    setPage(1);
+  }, [query, sectionFilter]);
+
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((row) => JSON.stringify(row).toLowerCase().includes(q));
-  }, [rows, query]);
+    return rows.filter((row) => {
+      if (sectionFilter !== 'all' && String(row.section || '') !== sectionFilter) return false;
+      if (!q) return true;
+      return JSON.stringify(row).toLowerCase().includes(q);
+    });
+  }, [rows, query, sectionFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(visible.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const paged = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return visible.slice(start, start + pageSize);
+  }, [visible, currentPage, pageSize]);
 
   function edit(row) {
     const next = emptyFrom(config.fields);
@@ -324,6 +347,17 @@ export default function CatalogPage({ resource }) {
               {field.hint && <p className="muted" style={{ margin: '0 0 8px' }}>{field.hint}</p>}
               {field.type === 'textarea' ? (
                 <textarea id={field.name} required={field.required} placeholder={field.placeholder || ''} value={form[field.name]} onChange={(e) => setForm({ ...form, [field.name]: e.target.value })} />
+              ) : field.type === 'select' ? (
+                <select
+                  id={field.name}
+                  required={field.required}
+                  value={form[field.name] || field.defaultValue || ''}
+                  onChange={(e) => setForm({ ...form, [field.name]: e.target.value })}
+                >
+                  {(field.options || []).map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
               ) : field.type === 'file' ? (
                 <>
                   <input
@@ -378,8 +412,24 @@ export default function CatalogPage({ resource }) {
           </div>
         </form>
         <div className="table-wrap">
-          <div style={{ padding: 16 }}>
-            <input className="search" placeholder="Search" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search" />
+          <div className="table-toolbar" style={{ padding: 16, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            {sectionField && (
+              <label style={{ display: 'flex', gap: 8, alignItems: 'center', margin: 0 }}>
+                <span className="muted">Section</span>
+                <select
+                  aria-label="Filter by section"
+                  value={sectionFilter}
+                  onChange={(e) => setSectionFilter(e.target.value)}
+                  style={{ minWidth: 180 }}
+                >
+                  <option value="all">All sections</option>
+                  {(sectionField.options || []).map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <input className="search" placeholder="Search" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search" style={{ flex: 1, minWidth: 160 }} />
           </div>
           <table>
             <thead>
@@ -389,9 +439,15 @@ export default function CatalogPage({ resource }) {
               </tr>
             </thead>
             <tbody>
-              {visible.map((row) => (
+              {paged.map((row) => (
                 <tr key={row.id}>
-                  {config.columns.map((column) => <td key={column}>{String(row[column] ?? '')}</td>)}
+                  {config.columns.map((column) => (
+                    <td key={column}>
+                      {column === 'section' && sectionField
+                        ? (sectionField.options.find((option) => option.value === row.section)?.label || row.section || '')
+                        : String(row[column] ?? '')}
+                    </td>
+                  ))}
                   <td>
                     <div className="row-actions">
                       <button className="btn secondary small" type="button" onClick={() => edit(row)}>Edit</button>
@@ -400,11 +456,23 @@ export default function CatalogPage({ resource }) {
                   </td>
                 </tr>
               ))}
-              {visible.length === 0 && (
+              {paged.length === 0 && (
                 <tr><td colSpan={config.columns.length + 1} className="muted">Nothing here yet.</td></tr>
               )}
             </tbody>
           </table>
+          {visible.length > 0 && (
+            <div className="pager" style={{ padding: '12px 16px', display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+              <span className="muted">
+                Showing {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, visible.length)} of {visible.length}
+              </span>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <button className="btn secondary small" type="button" disabled={currentPage <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Prev</button>
+                <span>Page {currentPage} / {totalPages}</span>
+                <button className="btn secondary small" type="button" disabled={currentPage >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>Next</button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

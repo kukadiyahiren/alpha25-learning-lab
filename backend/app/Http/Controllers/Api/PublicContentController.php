@@ -85,16 +85,31 @@ class PublicContentController extends Controller
 
     public function gk()
     {
-        return GkQuestion::query()
+        $questions = GkQuestion::query()
             ->orderBy('sort_order')
             ->orderBy('id')
-            ->get()
-            ->groupBy('category')
-            ->map(fn ($items, $category) => [
-                'category' => $category,
-                'questions' => $items->values(),
-            ])
-            ->values();
+            ->get();
+
+        $sections = [];
+        foreach (GkQuestion::sections() as $id => $label) {
+            $groups = $questions
+                ->filter(fn ($item) => GkQuestion::normalizeSection($item->section) === $id)
+                ->groupBy('category')
+                ->map(fn ($items, $category) => [
+                    'category' => $category,
+                    'questions' => $items->values(),
+                ])
+                ->values()
+                ->all();
+
+            $sections[] = [
+                'id' => $id,
+                'label' => $label,
+                'groups' => $groups,
+            ];
+        }
+
+        return ['sections' => $sections];
     }
 
     public function spokenEnglish()
