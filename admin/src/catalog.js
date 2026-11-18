@@ -1,25 +1,42 @@
 export const RESOURCES = {
   audio: {
-    title: 'Audio stories',
-    hint: 'Stories shown on the Audio page. Upload an audio file, or leave it empty and the site will read the text aloud.',
+    title: 'Audio',
+    hint: 'Learning tip: Title = what students see (e.g. "1 to 10"). Text = what the voice speaks (e.g. "એક બે ત્રણ…"). Use Learning packs below to auto-fill.',
+    learningPresets: true,
     bulk: {
-      columns: ['language', 'title', 'body', 'sort_order'],
+      columns: ['section', 'language', 'title', 'body', 'sort_order'],
       sample: 'audio-stories-sample.csv',
       samples: [
-        ['Gujarati', 'નાની ચકલીની હિંમત', 'એક નાની ચકલી વૃક્ષ પર રહેતી હતી. તે દરરોજ વહેલી સવારે ઊડતી હતી.', 1],
-        ['Hindi', 'मेहनती खरगोश', 'यह हिंदी कहानी का नमूना है. मेहनत से हर काम पूरा होता है.', 2],
-        ['English', 'The Helpful Little Star', 'A little star helped the night sky shine. Kindness made everyone brighter.', 3],
+        ['story', 'Gujarati', 'નાની ચકલીની હિંમત', 'એક નાની ચકલી વૃક્ષ પર રહેતી હતી. તે દરરોજ વહેલી સવારે ઊડતી હતી.', 1],
+        ['learning', 'Gujarati', '1 to 10', 'એક, બે, ત્રણ, ચાર, પાંચ, છ, સાત, આઠ, નવ, દસ', 10],
+        ['learning', 'English', 'A to Z', 'A B C D E F G H I J K L M N O P Q R S T U V W X Y Z', 30],
       ],
-      note: 'Audio files are not imported from the sheet; add those later with Edit if needed.',
+      note: 'section must be learning or story. For Learning, put display label in title and spoken words in body. Audio files are not imported from the sheet.',
     },
     fields: [
+      {
+        name: 'section',
+        label: 'Section',
+        type: 'select',
+        required: true,
+        defaultValue: 'story',
+        options: [
+          { value: 'learning', label: 'Learning' },
+          { value: 'story', label: 'Story' },
+        ],
+      },
       { name: 'language', label: 'Language', placeholder: 'Gujarati' },
-      { name: 'title', label: 'Title' },
-      { name: 'body', label: 'Story text', type: 'textarea' },
+      { name: 'title', label: 'Title (shown on card)', placeholder: '1 to 10', hint: 'Short label students see. Example: 1 to 10, A to Z, કક્કો' },
+      {
+        name: 'body',
+        label: 'Speak text (voice reads this)',
+        type: 'textarea',
+        hint: 'What TTS / Read aloud speaks. Example for "1 to 10": એક બે ત્રણ ચાર પાંચ છ સાત આઠ નવ દસ',
+      },
       { name: 'sort_order', label: 'Order', type: 'number' },
-      { name: 'audio', label: 'Audio file', type: 'file', accept: 'audio/*' },
+      { name: 'audio', label: 'Audio file (optional)', type: 'file', accept: 'audio/*' },
     ],
-    columns: ['language', 'title'],
+    columns: ['section', 'language', 'title'],
   },
   ebooks: {
     title: 'eBooks',

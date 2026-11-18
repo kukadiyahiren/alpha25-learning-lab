@@ -24,6 +24,7 @@ class Catalog
             'audio' => [
                 'model' => AudioStory::class,
                 'rules' => [
+                    'section' => ['required', 'string', Rule::in(AudioStory::sectionIds())],
                     'language' => ['nullable', 'string', 'max:50'],
                     'title' => ['nullable', 'string', 'max:255'],
                     'body' => ['nullable', 'string'],

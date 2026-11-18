@@ -419,7 +419,10 @@ async function softNavigate(url, { push = true } = {}) {
   softNavigating = true;
   document.body.classList.add('is-navigating');
   markSoftPageRoots();
-  showKidsLoader('Opening a fun page…');
+  // Drop any orphaned loader from the previous page (e.g. left mid-fetch).
+  // Do not show a nav loader here — page scripts use loadJson / skeletons instead.
+  // A second show+force-hide pair was leaving count stuck or flashing an empty shell.
+  hideKidsLoader(true);
 
   const pageUrl = new URL(url, location.href).href;
   // View Transitions can hang in some embeds/browsers and leave the loader forever.
@@ -462,7 +465,6 @@ async function softNavigate(url, { push = true } = {}) {
   } catch {
     location.href = pageUrl;
   } finally {
-    hideKidsLoader(true);
     softNavigating = false;
     document.body.classList.remove('is-navigating', 'nav-open');
     document.documentElement.classList.remove('soft-leaving', 'soft-entering');
@@ -560,6 +562,7 @@ function setKidsLoaderMessage(message) {
 function showKidsLoader(message) {
   const loader = ensureKidsLoader();
   kidsLoaderCount += 1;
+  loader.style.display = '';
   setKidsLoaderMessage(message || LOADER_MESSAGES[Math.floor(Math.random() * LOADER_MESSAGES.length)]);
   loader.classList.add('show');
   loader.setAttribute('aria-busy', 'true');
@@ -582,11 +585,14 @@ function hideKidsLoader(force = false) {
     kidsLoaderMsgTimer = null;
   }
   if (kidsLoaderTimer) window.clearTimeout(kidsLoaderTimer);
+  // Force fully off after the fade — opacity transitions can stick at 1 in some embeds.
   kidsLoaderTimer = window.setTimeout(() => {
-    if (kidsLoaderCount === 0 && loader.parentNode) {
-      /* keep node for reuse */
+    if (kidsLoaderCount === 0 && loader && !loader.classList.contains('show')) {
+      loader.style.display = 'none';
+      loader.style.opacity = '';
+      loader.style.visibility = '';
     }
-  }, 240);
+  }, 260);
 }
 
 async function loadJson(path, options = {}) {
@@ -597,7 +603,11 @@ async function loadJson(path, options = {}) {
     if (!response.ok) throw new Error('Could not load content');
     return await response.json();
   } finally {
-    if (!silent) hideKidsLoader();
+    // Hide after the caller's .then/.await can paint. `finally` runs before
+    // fulfillment handlers, so a sync hide flashes an empty page on first load.
+    if (!silent) {
+      requestAnimationFrame(() => hideKidsLoader());
+    }
   }
 }
 
@@ -610,21 +620,267 @@ function audioBlock(url) {
   return `<audio controls preload="none" src="${esc(url)}"></audio>`;
 }
 
-function speakButton(text, lang, label) {
+const SPEAK_GAP_KEY = 'alpha25_speak_gap_ms';
+const SPEAK_ENGINE_KEY = 'alpha25_speak_engine';
+let speakGapTimer = null;
+let speakAudio = null;
+
+function speakButton(text, lang, label, paced = false) {
   const payload = esc(JSON.stringify(String(text || '')));
-  return `<button class="btn" type="button" onclick="speak(${payload}, '${lang}')">${label}</button>`;
+  return `<button class="btn" type="button" onclick="speak(${payload}, '${lang}', { paced: ${paced ? 'true' : 'false'} })">${label}</button>`;
 }
 
-function speak(text, lang = 'en-IN') {
+function getSpeakGapMs() {
+  const n = Number(localStorage.getItem(SPEAK_GAP_KEY));
+  if (Number.isFinite(n)) return Math.min(2000, Math.max(0, n));
+  return 500;
+}
+
+function setSpeakGapMs(ms) {
+  const value = Math.min(2000, Math.max(0, Number(ms) || 0));
+  localStorage.setItem(SPEAK_GAP_KEY, String(value));
+  return value;
+}
+
+function getSpeakEngine() {
+  const value = localStorage.getItem(SPEAK_ENGINE_KEY);
+  return value === 'browser' ? 'browser' : 'indian';
+}
+
+function setSpeakEngine(engine) {
+  const value = engine === 'browser' ? 'browser' : 'indian';
+  localStorage.setItem(SPEAK_ENGINE_KEY, value);
+  return value;
+}
+
+function normalizeSpeakLang(lang) {
+  const raw = String(lang || '').trim();
+  const key = raw.toLowerCase();
+  const map = {
+    gujarati: 'gu-IN',
+    gu: 'gu-IN',
+    'gu-in': 'gu-IN',
+    hindi: 'hi-IN',
+    hi: 'hi-IN',
+    'hi-in': 'hi-IN',
+    english: 'en-IN',
+    en: 'en-IN',
+    'en-in': 'en-IN',
+    'en-us': 'en-IN',
+    'en-gb': 'en-IN',
+  };
+  return map[key] || raw || 'en-IN';
+}
+
+function ttsLocale(lang) {
+  const want = normalizeSpeakLang(lang).toLowerCase();
+  if (want.startsWith('gu')) return 'gu';
+  if (want.startsWith('hi')) return 'hi';
+  return 'en';
+}
+
+function scoreSpeakVoice(voice, lang) {
+  const vLang = String(voice.lang || '').toLowerCase();
+  const vName = String(voice.name || '').toLowerCase();
+  const want = String(lang || '').toLowerCase();
+  const wantBase = want.split('-')[0];
+  let score = 0;
+
+  if (vLang === want) score += 120;
+  else if (vLang.startsWith(`${wantBase}-`)) score += 80;
+  else if (vLang === wantBase) score += 55;
+
+  if (wantBase === 'gu') {
+    if (/gujarati|gujar|ગુજરાતી/.test(vName) || vLang.startsWith('gu')) score += 80;
+    else if (vLang.startsWith('hi') || /hindi|india|indian|neerja|raveena/.test(vName)) score += 55;
+    if (/en-us|en-gb|american|british|australian/.test(`${vLang} ${vName}`)) score -= 60;
+  } else if (wantBase === 'hi') {
+    if (/hindi|हिन्दी|हिंदी/.test(vName) || vLang.startsWith('hi')) score += 70;
+    if (/en-us|en-gb|american|british/.test(`${vLang} ${vName}`)) score -= 50;
+  } else if (wantBase === 'en') {
+    if (vLang === 'en-in') score += 90;
+    if (/india|indian|raveena|neerja|en-in/.test(`${vLang} ${vName}`)) score += 70;
+    if (/en-us|american|en-gb|british|australian|en-au/.test(`${vLang} ${vName}`)) score -= 70;
+    else if (vLang.startsWith('en-')) score += 8;
+  }
+
+  if (voice.localService) score += 4;
+  return score;
+}
+
+function pickSpeakVoice(lang) {
+  if (!window.speechSynthesis) return null;
+  const want = normalizeSpeakLang(lang);
+  const voices = window.speechSynthesis.getVoices() || [];
+  if (!voices.length) return null;
+
+  let best = null;
+  let bestScore = -999;
+  voices.forEach((voice) => {
+    const score = scoreSpeakVoice(voice, want);
+    if (score > bestScore) {
+      best = voice;
+      bestScore = score;
+    }
+  });
+  return best;
+}
+
+function splitSpeakChunks(text) {
+  return String(text || '')
+    .split(/[,،·|/;]+|\s+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function shouldPaceSpeak(text, options = {}) {
+  if (options.paced === true) return true;
+  if (options.paced === false) return false;
+  const chunks = splitSpeakChunks(text);
+  if (chunks.length < 3) return false;
+  const shortCount = chunks.filter((chunk) => chunk.length <= 4).length;
+  return shortCount >= Math.ceil(chunks.length * 0.6);
+}
+
+function makeUtterance(text, lang) {
+  const wantLang = normalizeSpeakLang(lang);
+  const u = new SpeechSynthesisUtterance(String(text || ''));
+  u.rate = wantLang.startsWith('gu') || wantLang.startsWith('hi') ? 0.82 : 0.9;
+  u.pitch = 1;
+  const voice = pickSpeakVoice(wantLang);
+  if (voice) {
+    u.voice = voice;
+    if (wantLang.startsWith('en')) u.lang = 'en-IN';
+    else if (wantLang.startsWith('gu') && String(voice.lang || '').toLowerCase().startsWith('gu')) u.lang = voice.lang;
+    else if (wantLang.startsWith('gu')) u.lang = 'hi-IN';
+    else u.lang = voice.lang || wantLang;
+  } else {
+    u.lang = wantLang.startsWith('gu') ? 'hi-IN' : wantLang;
+  }
+  return u;
+}
+
+function indianTtsUrl(text, lang) {
+  const q = encodeURIComponent(String(text || '').slice(0, 160));
+  const tl = encodeURIComponent(ttsLocale(lang));
+  return `${API_ORIGIN}/api/tts?tl=${tl}&q=${q}`;
+}
+
+function stopSpeak() {
+  if (speakGapTimer) {
+    clearTimeout(speakGapTimer);
+    speakGapTimer = null;
+  }
+  if (speakAudio) {
+    speakAudio.onended = null;
+    speakAudio.onerror = null;
+    speakAudio.pause();
+    speakAudio.src = '';
+    speakAudio = null;
+  }
+  window.speechSynthesis?.cancel();
+}
+
+function speakBrowser(text, lang, options = {}) {
   if (!window.speechSynthesis) {
     alert('Speech not supported in this browser.');
     return;
   }
-  window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(String(text));
-  u.lang = lang;
-  u.rate = 0.9;
-  window.speechSynthesis.speak(u);
+
+  const run = () => {
+    window.speechSynthesis.cancel();
+    const raw = String(text || '').trim();
+    if (!raw) return;
+
+    if (!shouldPaceSpeak(raw, options)) {
+      window.speechSynthesis.speak(makeUtterance(raw, lang));
+      return;
+    }
+
+    const chunks = splitSpeakChunks(raw);
+    const gap = options.gapMs != null ? Number(options.gapMs) : getSpeakGapMs();
+    let index = 0;
+    const speakNext = () => {
+      if (index >= chunks.length) return;
+      const u = makeUtterance(chunks[index], lang);
+      index += 1;
+      u.onend = () => {
+        if (index >= chunks.length) return;
+        speakGapTimer = setTimeout(speakNext, Math.max(0, gap));
+      };
+      u.onerror = () => {
+        if (index >= chunks.length) return;
+        speakGapTimer = setTimeout(speakNext, Math.max(0, gap));
+      };
+      window.speechSynthesis.speak(u);
+    };
+    speakNext();
+  };
+
+  const voices = window.speechSynthesis.getVoices();
+  if (!voices || !voices.length) {
+    const onReady = () => {
+      window.speechSynthesis.removeEventListener('voiceschanged', onReady);
+      run();
+    };
+    window.speechSynthesis.addEventListener('voiceschanged', onReady);
+    setTimeout(run, 300);
+    return;
+  }
+  run();
+}
+
+function speakIndian(text, lang, options = {}) {
+  const raw = String(text || '').trim();
+  if (!raw) return;
+
+  const paced = shouldPaceSpeak(raw, options);
+  const chunks = paced ? splitSpeakChunks(raw) : [raw];
+  const gap = options.gapMs != null ? Number(options.gapMs) : getSpeakGapMs();
+  let index = 0;
+
+  const playNext = () => {
+    if (index >= chunks.length) return;
+    const chunk = chunks[index];
+    index += 1;
+    const audio = new Audio(indianTtsUrl(chunk, lang));
+    speakAudio = audio;
+    audio.preload = 'auto';
+    audio.onended = () => {
+      if (index >= chunks.length) return;
+      speakGapTimer = setTimeout(playNext, Math.max(0, gap));
+    };
+    audio.onerror = () => {
+      // Fall back to browser voice for remaining text
+      stopSpeak();
+      const rest = chunks.slice(Math.max(0, index - 1)).join(' ');
+      speakBrowser(rest, lang, { ...options, paced });
+    };
+    audio.play().catch(() => {
+      stopSpeak();
+      speakBrowser(raw, lang, options);
+    });
+  };
+
+  playNext();
+}
+
+function speak(text, lang = 'gu-IN', options = {}) {
+  stopSpeak();
+  const engine = options.engine || getSpeakEngine();
+  if (engine === 'browser') {
+    speakBrowser(text, lang, options);
+    return;
+  }
+  // Default: strong Indian online voice (Gujarati / Hindi / English)
+  speakIndian(text, lang, options);
+}
+
+if (typeof window !== 'undefined' && window.speechSynthesis) {
+  window.speechSynthesis.getVoices();
+  window.speechSynthesis.addEventListener('voiceschanged', () => {
+    window.speechSynthesis.getVoices();
+  });
 }
 
 function showAnswer(id) {

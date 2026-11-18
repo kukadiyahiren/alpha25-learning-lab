@@ -169,7 +169,7 @@ function buildFormData(resource, row) {
   }
 
   const fieldsByResource = {
-    audio: ['language', 'title', 'body', 'sort_order'],
+    audio: ['section', 'language', 'title', 'body', 'sort_order'],
     worksheets: ['grade', 'title', 'description', 'sort_order'],
     'spoken-english': ['day_label', 'topic', 'script', 'sort_order'],
     phonics: ['day_label', 'letter', 'word', 'sort_order'],
@@ -178,7 +178,7 @@ function buildFormData(resource, row) {
   if (!keys) {
     return { error: 'Bulk import is not available for this section.' };
   }
-  if (isBlankRow(row, keys)) return { skip: true };
+  if (isBlankRow(row, keys.filter((key) => key !== 'section'))) return { skip: true };
 
   if (resource === 'worksheets') {
     if (!String(row.grade ?? '').trim() || !String(row.title ?? '').trim()) {
@@ -199,6 +199,10 @@ function buildFormData(resource, row) {
     if (!String(row.title ?? '').trim() && !String(row.body ?? '').trim()) {
       return { error: 'add at least a title or story text.' };
     }
+    const rawSection = String(row.section ?? 'story').trim().toLowerCase().replace(/[\s-]+/g, '_');
+    row.section = ['learning', 'learn', 'lesson', 'education'].includes(rawSection)
+      ? 'learning'
+      : 'story';
   }
 
   keys.forEach((key) => {

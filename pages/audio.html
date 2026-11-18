@@ -4,42 +4,223 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Audio Stories</title>
+  <title>Audio - Alpha 25</title>
   <link rel="icon" href="../favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="../favicon.svg">
-  <link rel="stylesheet" href="../style.css?v=24">
+  <link rel="stylesheet" href="../style.css?v=25">
+  <style>
+    .audio-section-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 0 0 18px;
+    }
+    .audio-section-tab {
+      flex: 1 1 160px;
+      border: 2px solid #cbd5e1;
+      background: #fff;
+      color: #0f172a;
+      border-radius: 14px;
+      padding: 12px 14px;
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+      text-align: left;
+      transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+    }
+    .audio-section-tab small {
+      display: block;
+      margin-top: 4px;
+      font-weight: 600;
+      color: #64748b;
+      font-size: 0.82rem;
+    }
+    .audio-section-tab:hover { transform: translateY(-1px); }
+    .audio-section-tab.is-active {
+      border-color: #0e7490;
+      background: linear-gradient(135deg, #ecfeff, #f0fdf4);
+      color: #0f766e;
+    }
+    .audio-section-tab.is-active small { color: #0f766e; }
+    .audio-section-panel[hidden] { display: none !important; }
+    .audio-empty {
+      background: #fff;
+      border: 1px dashed #cbd5e1;
+      border-radius: 14px;
+      padding: 22px 16px;
+      color: #64748b;
+      text-align: center;
+    }
+    .audio-loading {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 28px 16px;
+      color: #64748b;
+      text-align: center;
+      font-weight: 700;
+      min-height: 120px;
+      display: grid;
+      place-items: center;
+    }
+    @media (max-width: 560px) {
+      .audio-section-tab { flex: 1 1 100%; }
+    }
+  </style>
 </head>
 
 <body>
   <header class="hero">
-    <div class="brand">🎧 Audio Stories</div>
-    <p>Gujarati • Hindi • English</p>
+    <div class="brand">🎧 Audio</div>
+    <p>Learning અને Story — section પસંદ કરો</p>
   </header>
   <nav id="nav"></nav>
   <main class="page">
-    <div id="stories" class="grid"></div>
+    <div class="audio-speak-settings card" style="margin-bottom:14px;padding:12px 14px;display:flex;flex-wrap:wrap;gap:12px;align-items:center">
+      <strong>🔊 Voice settings</strong>
+      <label style="display:flex;gap:8px;align-items:center;margin:0">
+        Voice
+        <select id="speakEngine">
+          <option value="indian">Indian Gujarati / Hindi (recommended)</option>
+          <option value="browser">Browser voice</option>
+        </select>
+      </label>
+      <label style="display:flex;gap:8px;align-items:center;margin:0">
+        Gap between letters/numbers
+        <input id="speakGap" type="range" min="0" max="1500" step="50" style="width:140px">
+        <span id="speakGapValue">500 ms</span>
+      </label>
+      <button type="button" class="btn secondary" id="stopSpeakBtn" style="margin-top:0">Stop</button>
+    </div>
+    <div class="audio-section-tabs" id="audioTabs" role="tablist" aria-label="Audio sections">
+      <button type="button" class="audio-section-tab is-active" disabled aria-disabled="true">
+        📚 Learning
+        <small>લોડ થઈ રહ્યું છે…</small>
+      </button>
+      <button type="button" class="audio-section-tab" disabled aria-disabled="true">
+        📖 Story
+        <small>લોડ થઈ રહ્યું છે…</small>
+      </button>
+    </div>
+    <div id="stories">
+      <div class="audio-loading" aria-live="polite">Audio લોડ થઈ રહ્યું છે…</div>
+    </div>
   </main>
   <footer>© Alpha Kids Learning Lab</footer>
-  <script src="../app.js?v=24"></script>
+  <script src="../app.js?v=30"></script>
   <script>
     const langCode = { English: 'en-IN', Hindi: 'hi-IN', Gujarati: 'gu-IN' };
-    loadJson('/audio').then((stories) => {
-      const box = document.getElementById('stories');
-      if (!stories.length) {
-        box.innerHTML = emptyMessage('હજુ કોઈ audio story ઉમેરી નથી.');
-        return;
+    const gapInput = document.getElementById('speakGap');
+    const gapValue = document.getElementById('speakGapValue');
+    const engineSelect = document.getElementById('speakEngine');
+    gapInput.value = String(getSpeakGapMs());
+    gapValue.textContent = `${getSpeakGapMs()} ms`;
+    engineSelect.value = getSpeakEngine();
+    gapInput.addEventListener('input', () => {
+      const ms = setSpeakGapMs(gapInput.value);
+      gapValue.textContent = `${ms} ms`;
+    });
+    engineSelect.addEventListener('change', () => setSpeakEngine(engineSelect.value));
+    document.getElementById('stopSpeakBtn').onclick = () => stopSpeak();
+    const SECTION_META = {
+      learning: {
+        label: 'Learning',
+        hint: 'શીખવા માટે audio',
+        icon: '📚',
+      },
+      story: {
+        label: 'Story',
+        hint: 'સુંદર વાર્તાઓ સાંભળો',
+        icon: '📖',
+      },
+    };
+
+    function renderItems(items) {
+      if (!items || !items.length) {
+        return '<div class="audio-empty">આ section માં હજુ કોઈ audio નથી. Admin → Audio માં section પસંદ કરીને ઉમેરો.</div>';
       }
-      box.innerHTML = stories.map((story) => `
+      return `<div class="grid">${items.map((story) => {
+        const speakText = story.body || story.title || '';
+        const isLearning = String(story.section || '') === 'learning';
+        return `
         <div class="card">
           <h2>${esc(story.title)}</h2>
-          <p><b>${esc(story.language)}</b></p>
-          <p>${esc(story.body)}</p>
+          <p><b>${esc(story.language || '')}</b>${isLearning ? ' · Learning' : ''}</p>
+          ${!isLearning && story.body ? `<p>${esc(story.body)}</p>` : ''}
           ${audioBlock(story.audio_url)}
-          ${speakButton(story.body || story.title, langCode[story.language] || 'gu-IN', '🔊 Read aloud')}
+          ${speakButton(speakText, langCode[story.language] || 'gu-IN', '🔊 Read aloud', isLearning)}
+        </div>`;
+      }).join('')}</div>`;
+    }
+
+    function normalizePayload(payload) {
+      if (Array.isArray(payload?.sections)) return payload.sections;
+      // Old API: flat list → treat as story
+      if (Array.isArray(payload)) {
+        return [
+          { id: 'learning', label: 'Learning', items: [] },
+          { id: 'story', label: 'Story', items: payload },
+        ];
+      }
+      return [];
+    }
+
+    function activateSection(sectionId) {
+      document.querySelectorAll('.audio-section-tab').forEach((tab) => {
+        tab.classList.toggle('is-active', tab.dataset.section === sectionId);
+        tab.setAttribute('aria-selected', tab.dataset.section === sectionId ? 'true' : 'false');
+      });
+      document.querySelectorAll('.audio-section-panel').forEach((panel) => {
+        panel.hidden = panel.dataset.section !== sectionId;
+      });
+    }
+
+    // silent: page already shows Learning/Story placeholders — avoids empty flash
+    // when the global kids-loader hides before this render runs.
+    loadJson('/audio', { silent: true }).then((payload) => {
+      const sections = normalizePayload(payload);
+      const tabs = document.getElementById('audioTabs');
+      const box = document.getElementById('stories');
+      if (!tabs || !box) return;
+
+      if (!sections.length) {
+        tabs.innerHTML = '';
+        box.innerHTML = emptyMessage('હજુ કોઈ audio ઉમેર્યું નથી.');
+        return;
+      }
+
+      tabs.innerHTML = sections.map((section, index) => {
+        const meta = SECTION_META[section.id] || { label: section.label, hint: '', icon: '🎧' };
+        return `
+          <button
+            type="button"
+            class="audio-section-tab ${index === 0 ? 'is-active' : ''}"
+            data-section="${esc(section.id)}"
+            role="tab"
+            aria-selected="${index === 0 ? 'true' : 'false'}"
+          >
+            ${meta.icon || '🎧'} ${esc(meta.label || section.label)}
+            <small>${esc(meta.hint || '')}</small>
+          </button>
+        `;
+      }).join('');
+
+      box.innerHTML = sections.map((section, index) => `
+        <div class="audio-section-panel" data-section="${esc(section.id)}" ${index === 0 ? '' : 'hidden'}>
+          ${renderItems(section.items || [])}
         </div>
       `).join('');
+
+      tabs.addEventListener('click', (event) => {
+        const tab = event.target.closest('.audio-section-tab');
+        if (!tab) return;
+        activateSection(tab.dataset.section);
+      });
     }).catch(() => {
-      document.getElementById('stories').innerHTML = emptyMessage('Content લોડ થયું નથી. Laravel API ચાલુ છે તે ચકાસો.');
+      const tabs = document.getElementById('audioTabs');
+      const box = document.getElementById('stories');
+      if (tabs) tabs.innerHTML = '';
+      if (box) box.innerHTML = emptyMessage('Content લોડ થયું નથી. Laravel API ચાલુ છે તે ચકાસો.');
     });
   </script>
 </body>

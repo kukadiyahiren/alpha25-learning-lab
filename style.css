@@ -82,6 +82,7 @@ body.is-navigating { cursor: progress; }
   transition: opacity 220ms ease, visibility 220ms ease;
 }
 .kids-loader.show {
+  display: grid;
   opacity: 1;
   visibility: visible;
   pointer-events: auto;

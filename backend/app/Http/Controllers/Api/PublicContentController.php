@@ -26,7 +26,20 @@ class PublicContentController extends Controller
 
     public function audio()
     {
-        return AudioStory::query()->orderBy('sort_order')->orderBy('id')->get();
+        $items = AudioStory::query()->orderBy('sort_order')->orderBy('id')->get();
+
+        $sections = [];
+        foreach (AudioStory::sections() as $id => $label) {
+            $sections[] = [
+                'id' => $id,
+                'label' => $label,
+                'items' => $items
+                    ->filter(fn ($item) => AudioStory::normalizeSection($item->section) === $id)
+                    ->values(),
+            ];
+        }
+
+        return ['sections' => $sections];
     }
 
     public function ebooks()

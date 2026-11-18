@@ -14,17 +14,20 @@ class BulkImport
     {
         return [
             'audio' => [
-                'label' => 'audio stories',
-                'sheet' => 'Audio Stories',
+                'label' => 'audio items',
+                'sheet' => 'Audio',
                 'filename' => 'audio-stories-sample',
                 'model' => AudioStory::class,
-                'columns' => ['language', 'title', 'body', 'sort_order'],
+                'columns' => ['section', 'language', 'title', 'body', 'sort_order'],
                 'samples' => [
-                    ['Gujarati', 'નાની ચકલીની હિંમત', 'એક નાની ચકલી વૃક્ષ પર રહેતી હતી. તે દરરોજ વહેલી સવારે ઊડતી હતી.', 1],
-                    ['Hindi', 'मेहनती खरगोश', 'यह हिंदी कहानी का नमूना है. मेहनत से हर काम पूरा होता है.', 2],
-                    ['English', 'The Helpful Little Star', 'A little star helped the night sky shine. Kindness made everyone brighter.', 3],
+                    ['story', 'Gujarati', 'નાની ચકલીની હિંમત', 'એક નાની ચકલી વૃક્ષ પર રહેતી હતી. તે દરરોજ વહેલી સવારે ઊડતી હતી.', 1],
+                    ['story', 'Hindi', 'मेहनती खरगोश', 'यह हिंदी कहानी का नमूना है. मेहनत से हर काम पूरा होता है.', 2],
+                    ['learning', 'English', 'ABC Song practice', 'A B C D E F G. Learn letters with a happy voice.', 1],
                 ],
                 'aliases' => [
+                    'sec' => 'section',
+                    'type' => 'section',
+                    'audio_section' => 'section',
                     'lang' => 'language',
                     'story_language' => 'language',
                     'story' => 'body',
@@ -37,6 +40,7 @@ class BulkImport
                     'sort' => 'sort_order',
                 ],
                 'map' => function (array $row, int $line): array {
+                    $section = AudioStory::normalizeSection($row['section'] ?? 'story');
                     $language = trim((string) ($row['language'] ?? ''));
                     $title = trim((string) ($row['title'] ?? ''));
                     $body = trim((string) ($row['body'] ?? ''));
@@ -51,6 +55,7 @@ class BulkImport
 
                     return [
                         'payload' => [
+                            'section' => $section,
                             'language' => $language !== '' ? $language : null,
                             'title' => $title !== '' ? $title : ($language !== '' ? $language.' story' : 'Untitled'),
                             'body' => $body !== '' ? $body : null,

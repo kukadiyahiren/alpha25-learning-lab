@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { api, downloadFile } from '../api';
 import { importBulkRows } from '../bulkImport';
 import { RESOURCES } from '../catalog';
+import { LEARNING_PRESETS } from '../learningPresets';
 import { downloadCsvSample, downloadExcelSample } from '../sampleDownload';
 
 const emptyOptions = () => ['', '', '', ''];
@@ -341,6 +342,31 @@ export default function CatalogPage({ resource }) {
           <h2>{editing ? 'Edit' : 'Add'}</h2>
           {error && <div className="error">{error}</div>}
           {message && <div className="ok">{message}</div>}
+          {config.learningPresets && (
+            <div style={{ marginBottom: 14 }}>
+              <p className="muted" style={{ margin: '0 0 8px' }}>
+                Learning packs — fills Title (label) + Speak text (voice). Then click Add.
+              </p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {LEARNING_PRESETS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    className="btn secondary small"
+                    type="button"
+                    onClick={() => {
+                      const next = { ...emptyFrom(config.fields), ...preset.apply() };
+                      setForm(next);
+                      setEditing(null);
+                      setMessage(`Filled “${next.title}”. Review Speak text, then click Add.`);
+                      setError('');
+                    }}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {config.fields.map((field) => (
             <div key={field.name}>
               <label htmlFor={field.type === 'options' ? undefined : field.name}>{field.label}</label>

@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\PublicContentController;
 use App\Http\Controllers\Api\QuestionController;
 use App\Http\Controllers\Api\StatsController;
 use App\Http\Controllers\Api\SubjectController;
+use App\Http\Controllers\Api\TtsController;
 use App\Http\Controllers\Api\UploadChunkController;
 use App\Http\Controllers\Api\Worksheet2Controller;
 use Illuminate\Support\Facades\Route;
@@ -41,6 +42,7 @@ Route::post('/worksheet2/{id}/submit', [Worksheet2Controller::class, 'submit'])
 Route::get('/gk', [PublicContentController::class, 'gk']);
 Route::get('/spoken-english', [PublicContentController::class, 'spokenEnglish']);
 Route::get('/phonics', [PublicContentController::class, 'phonics']);
+Route::get('/tts', [TtsController::class, 'speak'])->middleware('throttle:120,1');
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
